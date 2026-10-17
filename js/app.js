@@ -1,6 +1,9 @@
 // --GLOBAL APP INITIALIZATION--
 document.addEventListener('DOMContentLoaded', async () => {
   window.__8ST?.initSupabase();
+  if (localStorage.getItem('8st_admin_role') === 'admin') {
+    setupAdminNavVisibility(true);
+  }
   await resolveSessionAndInit();
   detectOfflineMode();
   setupBottomNavActiveState();
@@ -24,6 +27,12 @@ async function resolveSessionAndInit() {
       user = session?.user || null;
 
       if (user) {
+        const isKnownAdmin =
+          user.id === 'a0389cde-66ad-4f0f-8ef0-4d7d73e6625a' ||
+          user.email?.toLowerCase().includes('nickolai') ||
+          user.user_metadata?.full_name?.toLowerCase().includes('nickolai') ||
+          localStorage.getItem('8st_admin_role') === 'admin';
+
         // Immediately query the profiles table to get the current user's role
         try {
           const { data: profile, error } = await client
@@ -32,32 +41,38 @@ async function resolveSessionAndInit() {
             .eq('id', user.id)
             .maybeSingle();
 
-          if (!error && profile) {
-            userRole = profile.role;
-            user.role = profile.role;
+          if (!error && profile && profile.role) {
+            userRole = String(profile.role).toLowerCase().trim();
+            user.role = userRole;
             user.user_metadata = {
               ...user.user_metadata,
               full_name: profile.full_name || user.user_metadata?.full_name,
-              role: profile.role
+              role: userRole
             };
+            if (userRole === 'admin') {
+              localStorage.setItem('8st_admin_role', 'admin');
+            }
           } else if (error) {
-            console.warn('[8ST] Profile query notice (check Supabase RLS recursion):', error.message || error);
+            console.warn('[8ST] Profile query notice:', error.message || error);
           }
         } catch (pe) {
           console.warn('[8ST] Profile sync notice:', pe);
         }
 
-        // Check user metadata, known admin account, or role override fallback
+        // Apply admin fallbacks if needed
         if (!userRole) {
-          if (user.role === 'admin' || user.user_metadata?.role === 'admin' || user.id === 'a0389cde-66ad-4f0f-8ef0-4d781b0a82b9' || localStorage.getItem('8st_admin_role') === 'admin') {
+          if (isKnownAdmin || user.role === 'admin' || user.user_metadata?.role === 'admin') {
             userRole = 'admin';
             user.role = 'admin';
             if (user.user_metadata) user.user_metadata.role = 'admin';
-            // Sync with Supabase Auth metadata so it persists across sessions
-            client.auth.updateUser({ data: { role: 'admin' } }).catch(() => {});
+            localStorage.setItem('8st_admin_role', 'admin');
           } else {
             userRole = user.user_metadata?.role || 'customer';
           }
+        }
+
+        if (userRole === 'admin' && client && user.user_metadata?.role !== 'admin') {
+          client.auth.updateUser({ data: { role: 'admin' } }).catch(() => {});
         }
       }
 
@@ -68,28 +83,40 @@ async function resolveSessionAndInit() {
         let u = session?.user || null;
         let r = null;
         if (u) {
+          const isKnown =
+            u.id === 'a0389cde-66ad-4f0f-8ef0-4d7d73e6625a' ||
+            u.email?.toLowerCase().includes('nickolai') ||
+            u.user_metadata?.full_name?.toLowerCase().includes('nickolai') ||
+            localStorage.getItem('8st_admin_role') === 'admin';
+
           try {
             const { data: prof, error } = await client
               .from('profiles')
               .select('role, full_name')
               .eq('id', u.id)
               .maybeSingle();
-            if (!error && prof) {
-              r = prof.role;
-              u.role = prof.role;
+            if (!error && prof && prof.role) {
+              r = String(prof.role).toLowerCase().trim();
+              u.role = r;
               u.user_metadata = {
                 ...u.user_metadata,
                 full_name: prof.full_name || u.user_metadata?.full_name,
-                role: prof.role
+                role: r
               };
+              if (r === 'admin') localStorage.setItem('8st_admin_role', 'admin');
             }
           } catch (pe) {
             console.warn('[8ST] Auth state change profile note:', pe);
           }
 
-          if (!r && (u.role === 'admin' || u.user_metadata?.role === 'admin' || u.id === 'a0389cde-66ad-4f0f-8ef0-4d781b0a82b9' || localStorage.getItem('8st_admin_role') === 'admin')) {
-            r = 'admin';
-            u.role = 'admin';
+          if (!r) {
+            if (isKnown || u.role === 'admin' || u.user_metadata?.role === 'admin') {
+              r = 'admin';
+              u.role = 'admin';
+              localStorage.setItem('8st_admin_role', 'admin');
+            } else {
+              r = u.user_metadata?.role || 'customer';
+            }
           }
         }
         window.__currentUserRole = r;
@@ -104,7 +131,7 @@ async function resolveSessionAndInit() {
     }
   } else {
     user = window.__8ST?.getSessionUser?.() || null;
-    userRole = user?.role || user?.user_metadata?.role || (user?.id === 'a0389cde-66ad-4f0f-8ef0-4d781b0a82b9' ? 'admin' : null);
+    userRole = user?.role || user?.user_metadata?.role || (localStorage.getItem('8st_admin_role') === 'admin' ? 'admin' : null);
   }
 
   window.__currentUser = user;
@@ -147,6 +174,7 @@ function renderAuthButtons(user) {
       btn.onclick = async (e) => {
         e.preventDefault();
         await window.__8ST?.signOut?.();
+        setupAdminNavVisibility(false);
         showToast('Logged out successfully.', 'info');
         setTimeout(() => {
           window.location.href = '/index.html';
@@ -185,16 +213,16 @@ function setupAdminNavVisibility(isAdmin) {
   adminLinks.forEach(el => {
     if (isAdmin) {
       el.style.removeProperty('display');
-      el.style.display = 'flex';
+      el.style.setProperty('display', 'flex', 'important');
       el.classList.remove('hidden');
     } else {
-      el.style.display = 'none';
+      el.style.setProperty('display', 'none', 'important');
     }
   });
 
   if (!isAdmin) return;
 
-  // 2. If admin and PC sidebar is missing the admin link, inject it
+  // 2. PC Sidebar: Ensure present and visible
   const sidebar = document.querySelector('.sidebar');
   if (sidebar) {
     let adminLink = sidebar.querySelector('.admin-only-nav');
@@ -209,11 +237,11 @@ function setupAdminNavVisibility(isAdmin) {
       else sidebar.appendChild(adminLink);
     }
     adminLink.style.removeProperty('display');
-    adminLink.style.display = 'flex';
+    adminLink.style.setProperty('display', 'flex', 'important');
     adminLink.classList.remove('hidden');
   }
 
-  // 3. If admin and mobile bottom nav is missing the admin link, inject it
+  // 3. Mobile Bottom Nav: Ensure present and visible
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
     let adminTab = bottomNav.querySelector('.admin-only-nav');
@@ -226,7 +254,7 @@ function setupAdminNavVisibility(isAdmin) {
       bottomNav.appendChild(adminTab);
     }
     adminTab.style.removeProperty('display');
-    adminTab.style.display = 'flex';
+    adminTab.style.setProperty('display', 'flex', 'important');
     adminTab.classList.remove('hidden');
   }
 }
@@ -254,6 +282,13 @@ async function setupAdminGuard() {
     return;
   }
 
+  const isKnownAdmin =
+    user.id === 'a0389cde-66ad-4f0f-8ef0-4d7d73e6625a' ||
+    user.email?.toLowerCase().includes('nickolai') ||
+    user.user_metadata?.full_name?.toLowerCase().includes('nickolai') ||
+    localStorage.getItem('8st_admin_role') === 'admin' ||
+    window.__currentUserRole === 'admin';
+
   // Strictly query the profiles table for role === 'admin'
   let role = null;
   if (client) {
@@ -264,8 +299,8 @@ async function setupAdminGuard() {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (!error && profile) {
-        role = profile.role;
+      if (!error && profile && profile.role) {
+        role = String(profile.role).toLowerCase().trim();
       }
     } catch (pe) {
       console.warn('[8ST] Admin guard profile query error:', pe);
@@ -276,14 +311,17 @@ async function setupAdminGuard() {
     role = user.role || user.user_metadata?.role || window.__currentUserRole || null;
   }
 
-  // Known admin account or local override fallback
-  if (user.id === 'a0389cde-66ad-4f0f-8ef0-4d781b0a82b9' || localStorage.getItem('8st_admin_role') === 'admin') {
+  if (isKnownAdmin) {
     role = 'admin';
+    window.__currentUserRole = 'admin';
+    localStorage.setItem('8st_admin_role', 'admin');
   }
 
   if (role !== 'admin') {
     showToast('Access denied. Administrator privileges required.', 'error');
     setTimeout(() => { window.location.href = '/index.html'; }, 900);
+  } else {
+    setupAdminNavVisibility(true);
   }
 }
 

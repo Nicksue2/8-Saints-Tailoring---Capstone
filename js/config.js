@@ -1,7 +1,7 @@
 // --SUPABASE INITIALIZATION--
 const SUPABASE_URL = window.__env?.SUPABASE_URL || 'https://ncpaxxxrovnhwajqptlk.supabase.co';
 const SUPABASE_ANON_KEY = window.__env?.SUPABASE_ANON_KEY || 'sb_publishable_Zf2sjt82vOlJySokD0aRNg_ySDMWbwU';
-const CLOUDFLARE_SITE_KEY = window.__env?.CF_SITE_KEY || '';
+const CLOUDFLARE_SITE_KEY = window.__env?.CF_SITE_KEY || '0x4AAAAAAFZJ7QvRT5Uc5X-3';
 
 let supabaseClient = null;
 
@@ -37,7 +37,9 @@ async function signUp(email, password, metadata) {
 
 async function signOut() {
   cacheSessionUser(null);
+  try { localStorage.removeItem('8st_admin_role'); } catch {}
   window.__currentUser = null;
+  window.__currentUserRole = null;
   if (supabaseClient) {
     try {
       await supabaseClient.auth.signOut();
@@ -51,7 +53,7 @@ function isAdmin(user) {
   if (window.__currentUserRole === 'admin') return true;
   if (localStorage.getItem('8st_admin_role') === 'admin') return true;
   if (!user) return false;
-  if (user?.id === 'a0389cde-66ad-4f0f-8ef0-4d781b0a82b9') return true;
+  if (user?.id === 'a0389cde-66ad-4f0f-8ef0-4d7d73e6625a') return true;
   return user?.role === 'admin' || user?.user_metadata?.role === 'admin' || user?.app_metadata?.role === 'admin';
 }
 

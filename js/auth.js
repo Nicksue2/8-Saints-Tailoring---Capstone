@@ -32,6 +32,22 @@ function setupAuthToggle() {
     document.getElementById('auth-subtitle').textContent = isSignIn
       ? 'Sign in to your account'
       : 'Join 8 Saints Tailoring';
+
+    // Ensure Turnstile renders inside newly displayed container if needed
+    if (window.turnstile && typeof window.turnstile.render === 'function') {
+      const activePanel = isSignIn ? signInPanel : signUpPanel;
+      const widgetEl = activePanel.querySelector('.cf-turnstile');
+      if (widgetEl && !widgetEl.hasChildNodes()) {
+        try {
+          window.turnstile.render(widgetEl, {
+            sitekey: widgetEl.getAttribute('data-sitekey') || '0x4AAAAAAFZJ7QvRT5Uc5X-3',
+            theme: 'auto'
+          });
+        } catch (e) {
+          console.warn('[8ST] Turnstile render notice:', e);
+        }
+      }
+    }
   }
 
   signInBtn.addEventListener('click', () => switchTo('signin'));
@@ -40,13 +56,25 @@ function setupAuthToggle() {
 
 // --SIGN IN FORM HANDLER--
 function setupSignInForm() {
-  const form = document.getElementById('form-signin');
+  const form = document.getElementById('login-form') || document.getElementById('form-signin');
   if (!form) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const email = document.getElementById('signin-email').value.trim();
-    const password = document.getElementById('signin-password').value;
+
+    // --VERIFY CLOUDFLARE TURNSTILE CHALLENGE--
+    const turnstileResponse = new FormData(e.target).get('cf-turnstile-response');
+    if (!turnstileResponse) {
+      const errorMsg = 'Please complete the security verification before continuing.';
+      showAuthError('signin', errorMsg);
+      if (window.showToast) {
+        window.showToast(errorMsg, 'error');
+      }
+      return;
+    }
+
+    const email = document.getElementById('signin-email')?.value?.trim() || '';
+    const password = document.getElementById('signin-password')?.value || '';
     const btn = document.getElementById('signin-submit-btn');
 
     if (!email || !password) {
@@ -72,6 +100,10 @@ function setupSignInForm() {
           const { data: profile } = await client.from('profiles').select('*').eq('id', user.id).single();
           if (profile) {
             user.user_metadata = { ...user.user_metadata, full_name: profile.full_name, role: profile.role };
+            user.role = profile.role;
+            if (profile.role === 'admin') {
+              localStorage.setItem('8st_admin_role', 'admin');
+            }
           }
         } catch (pe) {
           console.warn('[8ST] Profile fetch info:', pe);
@@ -86,6 +118,9 @@ function setupSignInForm() {
       }, 800);
     } catch (err) {
       showAuthError('signin', err.message || 'Sign in failed.');
+      if (window.turnstile && typeof window.turnstile.reset === 'function') {
+        try { window.turnstile.reset(); } catch {}
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'Sign In';
@@ -95,15 +130,27 @@ function setupSignInForm() {
 
 // --SIGN UP FORM HANDLER--
 function setupSignUpForm() {
-  const form = document.getElementById('form-signup');
+  const form = document.getElementById('signup-form') || document.getElementById('form-signup');
   if (!form) return;
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const fullName = document.getElementById('signup-name').value.trim();
-    const email = document.getElementById('signup-email').value.trim();
-    const password = document.getElementById('signup-password').value;
-    const confirm = document.getElementById('signup-confirm').value;
+
+    // --VERIFY CLOUDFLARE TURNSTILE CHALLENGE--
+    const turnstileResponse = new FormData(e.target).get('cf-turnstile-response');
+    if (!turnstileResponse) {
+      const errorMsg = 'Please complete the security verification before continuing.';
+      showAuthError('signup', errorMsg);
+      if (window.showToast) {
+        window.showToast(errorMsg, 'error');
+      }
+      return;
+    }
+
+    const fullName = document.getElementById('signup-name')?.value?.trim() || '';
+    const email = document.getElementById('signup-email')?.value?.trim() || '';
+    const password = document.getElementById('signup-password')?.value || '';
+    const confirm = document.getElementById('signup-confirm')?.value || '';
     const btn = document.getElementById('signup-submit-btn');
 
     if (!fullName || !email || !password || !confirm) {
@@ -179,6 +226,9 @@ function setupSignUpForm() {
       }, 900);
     } catch (err) {
       showAuthError('signup', err.message || 'Sign up failed.');
+      if (window.turnstile && typeof window.turnstile.reset === 'function') {
+        try { window.turnstile.reset(); } catch {}
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = 'Create Account';
@@ -203,6 +253,7 @@ function showAuthSuccess(panel, message) {
 
 // --CLOUDFLARE TURNSTILE LOADER--
 function loadTurnstileScript() {
+  if (document.querySelector('script[src*="challenges.cloudflare.com"]')) return;
   const siteKey = window.__8ST?.CLOUDFLARE_SITE_KEY;
   if (!siteKey || siteKey === '') return;
 

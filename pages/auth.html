@@ -11,6 +11,8 @@
   <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
   <!-- --SUPABASE CDN-- -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- --CLOUDFLARE TURNSTILE-- -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
   <link rel="stylesheet" href="/css/style.css">
   <style>
     /* --AUTH SPECIFIC OVERRIDES-- */
@@ -23,7 +25,7 @@
     .divider-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--clr-text-muted); font-size: 0.8rem; }
     .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--clr-border); }
     .demo-hint { background: rgba(201,168,76,0.12); border: 1px solid var(--clr-gold-light); border-radius: var(--radius-md); padding: 10px 14px; font-size: 0.78rem; color: var(--clr-gold-dark); margin-top: 16px; line-height: 1.5; }
-    .cf-turnstile-placeholder { background: var(--clr-bg); border: 1.5px dashed var(--clr-border); border-radius: var(--radius-md); padding: 16px; text-align: center; font-size: 0.78rem; color: var(--clr-text-muted); margin-bottom: 16px; }
+    .turnstile-wrap { display: flex; justify-content: center; align-items: center; min-height: 65px; margin: 14px 0 16px; }
   </style>
 </head>
 <body>
@@ -53,7 +55,7 @@
 
     <!-- --SIGN IN PANEL-- -->
     <div id="panel-signin">
-      <form id="form-signin" novalidate>
+      <form id="login-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="signin-email">Email Address</label>
           <input type="email" id="signin-email" class="form-input" placeholder="you@email.com" autocomplete="email" required>
@@ -69,9 +71,8 @@
         </div>
 
         <!-- --CLOUDFLARE TURNSTILE-- -->
-        <div class="cf-turnstile-placeholder" id="signin-turnstile-wrap">
-          <div class="cf-turnstile" data-sitekey="" data-theme="light"></div>
-          <span><i class='bx bx-shield-quarter'></i> Security verification will appear here</span>
+        <div class="turnstile-wrap" id="signin-turnstile-wrap">
+          <div class="cf-turnstile" data-sitekey="0x4AAAAAAFZJ7QvRT5Uc5X-3" data-theme="auto"></div>
         </div>
 
         <p id="signin-error" class="auth-error hidden"></p>
@@ -83,7 +84,7 @@
 
     <!-- --SIGN UP PANEL-- -->
     <div id="panel-signup" class="hidden">
-      <form id="form-signup" novalidate>
+      <form id="signup-form" novalidate>
         <div class="form-group">
           <label class="form-label" for="signup-name">Full Name</label>
           <input type="text" id="signup-name" class="form-input" placeholder="Your full name" autocomplete="name" required>
@@ -112,9 +113,8 @@
         </div>
 
         <!-- --CLOUDFLARE TURNSTILE-- -->
-        <div class="cf-turnstile-placeholder" id="signup-turnstile-wrap">
-          <div class="cf-turnstile" data-sitekey="" data-theme="light"></div>
-          <span><i class='bx bx-shield-quarter'></i> Security verification will appear here</span>
+        <div class="turnstile-wrap" id="signup-turnstile-wrap">
+          <div class="cf-turnstile" data-sitekey="0x4AAAAAAFZJ7QvRT5Uc5X-3" data-theme="auto"></div>
         </div>
 
         <p id="signup-error" class="auth-error hidden"></p>
