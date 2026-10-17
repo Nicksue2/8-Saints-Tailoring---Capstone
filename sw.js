@@ -1,5 +1,5 @@
 // --SERVICE WORKER: CACHE STRATEGY--
-const CACHE_NAME = '8saints-v2';
+const CACHE_NAME = '8saints-v4';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -7,6 +7,7 @@ const STATIC_ASSETS = [
   '/pages/catalog.html',
   '/pages/customer-orders.html',
   '/pages/admin-dashboard.html',
+  '/pages/profile.html',
   '/css/style.css',
   '/js/config.js',
   '/js/app.js',
@@ -97,8 +98,7 @@ async function cacheFirst(request) {
     }
     return response;
   } catch (err) {
-    const fallback = await caches.match('/index.html');
-    return fallback || new Response('Asset unavailable offline', { status: 503 });
+    return new Response('Asset unavailable offline', { status: 503, statusText: 'Offline' });
   }
 }
 

@@ -119,11 +119,11 @@
       <div class="bento-widget-value" id="bento-active-orders">—</div>
       <div class="bento-widget-sub">Orders in progress</div>
     </div>
-    <div class="bento-widget" onclick="window.location.href='/pages/customer-orders.html'" style="cursor:pointer;">
+    <div class="bento-widget" onclick="window.location.href='/pages/profile.html'" style="cursor:pointer;">
       <div class="bento-widget-icon"><i class='bx bx-ruler'></i></div>
       <div class="bento-widget-title">My Size Profile</div>
-      <div class="bento-widget-value" style="font-size:1rem;font-weight:700;color:var(--clr-primary);">View →</div>
-      <div class="bento-widget-sub">Saved measurements</div>
+      <div class="bento-widget-value" style="font-size:1rem;font-weight:700;color:var(--clr-primary);">Manage →</div>
+      <div class="bento-widget-sub">View & edit measurements</div>
     </div>
   </div>
 
@@ -259,7 +259,11 @@
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav" data-page="admin" style="display:none;">
+  <a href="/pages/profile.html" class="nav-item customer-only-nav" data-page="profile">
+    <i class='bx bx-user'></i>
+    <span>Profile</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
     <i class='bx bx-cog'></i>
     <span>Admin</span>
   </a>

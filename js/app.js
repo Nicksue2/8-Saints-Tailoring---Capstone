@@ -125,6 +125,7 @@ async function resolveSessionAndInit() {
         renderGreetingPill(u);
         setupAdminNavVisibility(r === 'admin');
         renderAuthButtons(u);
+        if (typeof initUserNotifications === 'function') initUserNotifications(u);
       });
     } catch (err) {
       console.warn('[8ST] Session resolve exception:', err);
@@ -139,6 +140,7 @@ async function resolveSessionAndInit() {
   renderGreetingPill(user);
   setupAdminNavVisibility(userRole === 'admin');
   renderAuthButtons(user);
+  if (typeof initUserNotifications === 'function') initUserNotifications(user);
 }
 
 // --GREETING PILL RENDER--
@@ -169,7 +171,10 @@ function renderAuthButtons(user) {
   const buttons = document.querySelectorAll('#header-auth-btn, .header-auth-btn');
   buttons.forEach(btn => {
     if (user) {
-      btn.textContent = 'Logout';
+      btn.innerHTML = `<i class='bx bx-log-out'></i>`;
+      btn.className = 'header-icon-btn logout-btn';
+      btn.title = 'Logout';
+      btn.setAttribute('aria-label', 'Logout');
       btn.href = '#';
       btn.onclick = async (e) => {
         e.preventDefault();
@@ -181,7 +186,9 @@ function renderAuthButtons(user) {
         }, 600);
       };
     } else {
-      btn.textContent = 'Login';
+      btn.innerHTML = `<i class='bx bx-log-in'></i> Login`;
+      btn.className = 'header-auth-btn';
+      btn.title = 'Login';
       btn.href = '/pages/auth.html';
       btn.onclick = null;
     }
@@ -190,25 +197,45 @@ function renderAuthButtons(user) {
 
 window.renderAuthButtons = renderAuthButtons;
 
-// --CUSTOMIZE & ORDER ROUTE GUARDS--
+// --CUSTOMIZE & QUICK ORDER ROUTE GUARDS--
 function setupCustomizeGuards() {
   document.querySelectorAll('.sidebar-cta, .nav-center-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
+      e.preventDefault();
       const user = window.__currentUser || window.__8ST?.getSessionUser?.();
       if (!user) {
-        e.preventDefault();
         showToast('Please log in to customize an order.', 'info');
         setTimeout(() => {
           window.location.href = '/pages/auth.html';
         }, 600);
+        return;
       }
+
+      openQuickOrderModal();
     });
   });
 }
 
+function openQuickOrderModal() {
+  const modal = document.getElementById('customize-modal');
+  if (modal && typeof window.openCustomizeModal === 'function') {
+    const service = (window.allServices && window.allServices[0]) || {
+      id: 'custom-order',
+      name: 'Custom Tailoring Order',
+      base_price: 2500,
+      category: 'Bespoke'
+    };
+    window.openCustomizeModal(service);
+  } else {
+    window.location.href = '/pages/catalog.html?open=customize';
+  }
+}
+
+window.openQuickOrderModal = openQuickOrderModal;
+
 // --ADMIN NAV VISIBILITY & INJECTION--
 function setupAdminNavVisibility(isAdmin) {
-  // 1. Unhide or hide existing admin links
+  // 1. Admin navigation items
   const adminLinks = document.querySelectorAll('.admin-only-nav');
   adminLinks.forEach(el => {
     if (isAdmin) {
@@ -220,13 +247,23 @@ function setupAdminNavVisibility(isAdmin) {
     }
   });
 
-  if (!isAdmin) return;
+  // 2. Customer navigation items (e.g. 5th bottom-nav item: Profile)
+  const customerLinks = document.querySelectorAll('.customer-only-nav');
+  customerLinks.forEach(el => {
+    if (isAdmin) {
+      el.style.setProperty('display', 'none', 'important');
+    } else {
+      el.style.removeProperty('display');
+      el.style.setProperty('display', 'flex', 'important');
+      el.classList.remove('hidden');
+    }
+  });
 
-  // 2. PC Sidebar: Ensure present and visible
+  // 3. PC Sidebar: Ensure present and visible
   const sidebar = document.querySelector('.sidebar');
   if (sidebar) {
     let adminLink = sidebar.querySelector('.admin-only-nav');
-    if (!adminLink) {
+    if (!adminLink && isAdmin) {
       adminLink = document.createElement('a');
       adminLink.href = '/pages/admin-dashboard.html';
       adminLink.className = 'sidebar-nav-item admin-only-nav';
@@ -236,16 +273,22 @@ function setupAdminNavVisibility(isAdmin) {
       if (cta) sidebar.insertBefore(adminLink, cta);
       else sidebar.appendChild(adminLink);
     }
-    adminLink.style.removeProperty('display');
-    adminLink.style.setProperty('display', 'flex', 'important');
-    adminLink.classList.remove('hidden');
+    if (adminLink) {
+      if (isAdmin) {
+        adminLink.style.removeProperty('display');
+        adminLink.style.setProperty('display', 'flex', 'important');
+        adminLink.classList.remove('hidden');
+      } else {
+        adminLink.style.setProperty('display', 'none', 'important');
+      }
+    }
   }
 
-  // 3. Mobile Bottom Nav: Ensure present and visible
+  // 4. Mobile Bottom Nav: Ensure present and visible
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
     let adminTab = bottomNav.querySelector('.admin-only-nav');
-    if (!adminTab) {
+    if (!adminTab && isAdmin) {
       adminTab = document.createElement('a');
       adminTab.href = '/pages/admin-dashboard.html';
       adminTab.className = 'nav-item admin-only-nav';
@@ -253,9 +296,15 @@ function setupAdminNavVisibility(isAdmin) {
       adminTab.innerHTML = `<i class='bx bx-cog'></i><span>Admin</span>`;
       bottomNav.appendChild(adminTab);
     }
-    adminTab.style.removeProperty('display');
-    adminTab.style.setProperty('display', 'flex', 'important');
-    adminTab.classList.remove('hidden');
+    if (adminTab) {
+      if (isAdmin) {
+        adminTab.style.removeProperty('display');
+        adminTab.style.setProperty('display', 'flex', 'important');
+        adminTab.classList.remove('hidden');
+      } else {
+        adminTab.style.setProperty('display', 'none', 'important');
+      }
+    }
   }
 }
 
@@ -330,13 +379,30 @@ function detectOfflineMode() {
   const banner = document.getElementById('offline-banner');
   if (!banner) return;
 
-  function toggle() {
-    banner.classList.toggle('hidden', navigator.onLine);
+  // Banner must be hidden by default
+  banner.classList.add('hidden');
+
+  async function checkOnline() {
+    if (!navigator.onLine) {
+      // Verify with a lightweight ping to avoid false positives from browser throttling
+      try {
+        const resp = await fetch('/manifest.json', { method: 'HEAD', cache: 'no-store' });
+        if (resp && resp.ok) {
+          banner.classList.add('hidden');
+          return;
+        }
+      } catch (e) {
+        // Genuine offline confirmed
+      }
+      banner.classList.remove('hidden');
+    } else {
+      banner.classList.add('hidden');
+    }
   }
 
-  toggle();
-  window.addEventListener('online', toggle);
-  window.addEventListener('offline', toggle);
+  checkOnline();
+  window.addEventListener('online', () => banner.classList.add('hidden'));
+  window.addEventListener('offline', checkOnline);
 }
 
 // --BOTTOM NAV ROUTING--
@@ -366,15 +432,272 @@ function setupHeaderSearch() {
   });
 }
 
-// --NOTIFICATION BELL--
+// --IN-APP NOTIFICATIONS & SUPABASE REALTIME SYSTEM--
+let userNotifications = [];
+let notifRealtimeSub = null;
+
 function setupNotificationBell() {
   const bellBtn = document.getElementById('notif-btn');
   if (!bellBtn) return;
 
-  bellBtn.addEventListener('click', () => {
-    showToast('No new notifications', 'info');
+  // Create badge if not present
+  let badge = document.getElementById('notif-badge');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.id = 'notif-badge';
+    badge.className = 'notif-badge hidden';
+    bellBtn.appendChild(badge);
+  }
+
+  // Request Notification permission (optional/stretch for background notifications)
+  if ('Notification' in window && Notification.permission === 'default') {
+    bellBtn.addEventListener('mouseenter', () => {
+      Notification.requestPermission().catch(() => {});
+    }, { once: true });
+  }
+
+  bellBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleNotificationDropdown();
   });
+
+  document.addEventListener('click', (e) => {
+    const panel = document.getElementById('notif-dropdown');
+    if (panel && !panel.contains(e.target) && e.target !== bellBtn && !bellBtn.contains(e.target)) {
+      panel.classList.add('hidden');
+    }
+  });
+
+  // Initial load if user is already resolved
+  const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+  if (user) {
+    initUserNotifications(user);
+  }
 }
+
+async function initUserNotifications(user) {
+  if (!user) return;
+  const client = window.__8ST?.getClient?.();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('notifications')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(30);
+
+    if (!error && Array.isArray(data)) {
+      userNotifications = data;
+      updateNotificationBadge();
+      renderNotificationList();
+    }
+  } catch (err) {
+    console.warn('[8ST] Notification fetch notice:', err);
+  }
+
+  // Set up Supabase Realtime subscription
+  if (!notifRealtimeSub) {
+    try {
+      notifRealtimeSub = client.channel(`realtime-notifications-${user.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        }, (payload) => {
+          const newNotif = payload.new;
+          if (newNotif) {
+            handleIncomingNotification(newNotif);
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('[8ST] Realtime sub error:', e);
+    }
+  }
+}
+
+function handleIncomingNotification(notif) {
+  userNotifications.unshift(notif);
+  updateNotificationBadge();
+  renderNotificationList();
+
+  // Show in-app toast
+  showToast(`🔔 ${notif.title}: ${notif.message}`, 'info', 5000);
+
+  // Show local desktop/mobile notification if tab is in background
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    try {
+      new Notification(notif.title, {
+        body: notif.message,
+        icon: '/assets/icons/icon-192.png',
+        badge: '/assets/icons/icon-192.png'
+      });
+    } catch (e) {}
+  }
+}
+
+function updateNotificationBadge() {
+  const badge = document.getElementById('notif-badge');
+  if (!badge) return;
+
+  const unreadCount = userNotifications.filter(n => !n.is_read).length;
+  if (unreadCount > 0) {
+    badge.textContent = unreadCount > 99 ? '99+' : unreadCount;
+    badge.classList.remove('hidden');
+  } else {
+    badge.classList.add('hidden');
+  }
+}
+
+function toggleNotificationDropdown() {
+  let panel = document.getElementById('notif-dropdown');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'notif-dropdown';
+    panel.className = 'notif-dropdown hidden';
+    document.body.appendChild(panel);
+  }
+
+  const isHidden = panel.classList.toggle('hidden');
+  if (!isHidden) {
+    renderNotificationList();
+  }
+}
+
+function renderNotificationList() {
+  const panel = document.getElementById('notif-dropdown');
+  if (!panel) return;
+
+  const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+  if (!user) {
+    panel.innerHTML = `
+      <div class="notif-header">
+        <span class="notif-title">Notifications</span>
+      </div>
+      <div style="padding:24px 16px;text-align:center;">
+        <p style="font-size:0.85rem;color:var(--clr-text-secondary);margin-bottom:12px;">Log in to see your notifications</p>
+        <a href="/pages/auth.html" class="btn btn-sm btn-primary">Login</a>
+      </div>`;
+    return;
+  }
+
+  const unreadCount = userNotifications.filter(n => !n.is_read).length;
+
+  panel.innerHTML = `
+    <div class="notif-header">
+      <span class="notif-title">Notifications ${unreadCount > 0 ? `<small style="font-size:0.75rem;color:var(--accent-color)">(${unreadCount} new)</small>` : ''}</span>
+      ${unreadCount > 0 ? `<button class="notif-mark-read" onclick="markAllNotificationsAsRead()">Mark all as read</button>` : ''}
+    </div>
+    <div class="notif-list">
+      ${userNotifications.length === 0 ? `
+        <div style="padding:28px 16px;text-align:center;color:var(--clr-text-muted);font-size:0.85rem;">
+          <i class='bx bx-bell-off' style="font-size:2rem;display:block;margin-bottom:6px;"></i>
+          No notifications yet
+          <div style="margin-top:14px;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="sendTestNotification()">
+              <i class='bx bx-bell-ring'></i> Test Notification
+            </button>
+          </div>
+        </div>` : userNotifications.map(n => `
+        <div class="notif-item ${n.is_read ? 'read' : 'unread'}" onclick="handleNotificationClick('${n.id}', '${n.order_id || ''}')">
+          <div class="notif-item-dot"></div>
+          <div class="notif-item-content">
+            <div class="notif-item-title">${n.title}</div>
+            <div class="notif-item-msg">${n.message}</div>
+            <div class="notif-item-time">${formatTimeAgo(n.created_at)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+}
+
+async function sendTestNotification() {
+  const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+  if (!user) {
+    showToast('Please log in first to test notifications.', 'info');
+    return;
+  }
+
+  const sample = {
+    id: 'test-' + Date.now(),
+    user_id: user.id,
+    title: 'Quotation Ready!',
+    message: 'Your custom Barong Tagalog order #8S-TEST has been quoted at ₱2,500. Tap to review!',
+    is_read: false,
+    created_at: new Date().toISOString()
+  };
+
+  const client = window.__8ST?.getClient?.();
+  if (client) {
+    try {
+      await client.from('notifications').insert([{
+        user_id: user.id,
+        title: sample.title,
+        message: sample.message,
+        is_read: false
+      }]);
+    } catch (e) {
+      console.warn('Realtime test notification DB insert note:', e);
+    }
+  }
+
+  handleIncomingNotification(sample);
+}
+
+window.sendTestNotification = sendTestNotification;
+
+async function markAllNotificationsAsRead() {
+  const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+  if (!user) return;
+
+  userNotifications.forEach(n => { n.is_read = true; });
+  updateNotificationBadge();
+  renderNotificationList();
+
+  const client = window.__8ST?.getClient?.();
+  if (client) {
+    try {
+      await client
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false);
+    } catch (e) {
+      console.warn('[8ST] Mark all read error:', e);
+    }
+  }
+}
+
+async function handleNotificationClick(notifId, orderId) {
+  const notif = userNotifications.find(n => String(n.id) === String(notifId));
+  if (notif && !notif.is_read) {
+    notif.is_read = true;
+    updateNotificationBadge();
+    const client = window.__8ST?.getClient?.();
+    if (client) {
+      client.from('notifications').update({ is_read: true }).eq('id', notifId).then(() => {}).catch(() => {});
+    }
+  }
+
+  const panel = document.getElementById('notif-dropdown');
+  if (panel) panel.classList.add('hidden');
+
+  window.location.href = '/pages/customer-orders.html';
+}
+
+function formatTimeAgo(isoStr) {
+  if (!isoStr) return '';
+  const diffSec = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (diffSec < 60) return 'Just now';
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h ago`;
+  return `${Math.floor(diffSec / 86400)}d ago`;
+}
+
+window.markAllNotificationsAsRead = markAllNotificationsAsRead;
+window.handleNotificationClick = handleNotificationClick;
 
 // --DARK MODE TOGGLE--
 function setupDarkModeToggle() {
@@ -451,27 +774,101 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// --PWA INSTALL PROMPT--
-let deferredPrompt;
+// --PERSISTENT & DISMISSIBLE PWA INSTALL BANNER--
+let deferredInstallPrompt = null;
+
 function setupPWAInstallPrompt() {
+  const isStandalone =
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true;
+
+  if (isStandalone) return;
+
+  const dismissedTs = localStorage.getItem('8st_pwa_dismissed');
+  if (dismissedTs) {
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    if (Date.now() - parseInt(dismissedTs, 10) < sevenDaysMs) {
+      return;
+    }
+  }
+
+  // Detect iOS Safari (no beforeinstallprompt event)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome|CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+
+  if (isIOS && isSafari) {
+    renderPWAInstallBanner(true);
+  }
+
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
-    deferredPrompt = e;
-    const btn = document.getElementById('pwa-install-btn');
-    if (btn) btn.classList.remove('hidden');
+    deferredInstallPrompt = e;
+    renderPWAInstallBanner(false);
   });
 
-  const btn = document.getElementById('pwa-install-btn');
-  if (btn) {
-    btn.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
-      deferredPrompt.prompt();
-      await deferredPrompt.userChoice;
-      deferredPrompt = null;
-      btn.classList.add('hidden');
-    });
-  }
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    localStorage.setItem('8st_pwa_installed', 'true');
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+    showToast('8 Saints Tailoring app installed!', 'success');
+  });
 }
+
+function renderPWAInstallBanner(isIOS = false) {
+  if (document.getElementById('pwa-install-banner')) return;
+
+  const banner = document.createElement('div');
+  banner.id = 'pwa-install-banner';
+  banner.className = 'pwa-install-banner';
+
+  if (isIOS) {
+    banner.innerHTML = `
+      <div class="pwa-banner-left">
+        <img src="/assets/icons/icon-192.png" alt="8 Saints App Icon" class="pwa-banner-icon">
+        <div class="pwa-banner-text">
+          <div class="pwa-banner-title">Install 8 Saints App</div>
+          <div class="pwa-banner-sub">Tap <i class='bx bx-share' style="vertical-align:middle;color:var(--accent-color)"></i> Share, then select <strong>"Add to Home Screen"</strong></div>
+        </div>
+      </div>
+      <button class="pwa-banner-close" aria-label="Dismiss banner" onclick="dismissPWABanner()"><i class='bx bx-x'></i></button>`;
+  } else {
+    banner.innerHTML = `
+      <div class="pwa-banner-left">
+        <img src="/assets/icons/icon-192.png" alt="8 Saints App Icon" class="pwa-banner-icon">
+        <div class="pwa-banner-text">
+          <div class="pwa-banner-title">Install 8 Saints Tailoring</div>
+          <div class="pwa-banner-sub">Quick order tracking & offline access</div>
+        </div>
+      </div>
+      <div class="pwa-banner-actions">
+        <button class="btn btn-sm btn-primary" id="pwa-banner-install-btn" onclick="triggerPWAInstall()">Install</button>
+        <button class="pwa-banner-close" aria-label="Dismiss banner" onclick="dismissPWABanner()"><i class='bx bx-x'></i></button>
+      </div>`;
+  }
+
+  document.body.appendChild(banner);
+}
+
+async function triggerPWAInstall() {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice.outcome === 'accepted') {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) banner.remove();
+  }
+  deferredInstallPrompt = null;
+}
+
+function dismissPWABanner() {
+  localStorage.setItem('8st_pwa_dismissed', Date.now().toString());
+  const banner = document.getElementById('pwa-install-banner');
+  if (banner) banner.remove();
+}
+
+window.triggerPWAInstall = triggerPWAInstall;
+window.dismissPWABanner = dismissPWABanner;
 
 // --MODAL UTILITIES--
 function openModal(modalId) {

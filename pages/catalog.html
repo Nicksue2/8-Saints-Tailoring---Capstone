@@ -76,15 +76,12 @@
 <!-- --MAIN PAGE WRAPPER-- -->
 <main class="page-wrapper">
 
-  <!-- --GREETING PILL BAR-- -->
-  <div class="greeting-pill">
-    <span class="greeting-name">Welcome, <span id="greeting-name">Guest</span>!</span>
-    <span class="greeting-date" id="greeting-date">—</span>
+  <!-- --PAGE HEADER BANNER-- -->
+  <div class="page-header-banner">
+    <div class="page-header-badge"><i class='bx bx-cut'></i> Bespoke Atelier</div>
+    <h1 class="page-header-title">Our Services</h1>
+    <p class="page-header-sub">Explore handcrafted barongs, tailored suits, evening gowns, and alterations made to your exact fit.</p>
   </div>
-
-  <!-- --PAGE HEADING-- -->
-  <h1 style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--clr-text-primary);margin-bottom:6px;">Our Services</h1>
-  <p style="font-size:0.85rem;color:var(--clr-text-secondary);margin-bottom:18px;">Tap any service to begin your custom order.</p>
 
   <!-- --SEARCH BAR (WITH id="searchInput")-- -->
   <div class="search-bar-wrap">
@@ -209,7 +206,11 @@
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav" data-page="admin" style="display:none;">
+  <a href="/pages/profile.html" class="nav-item customer-only-nav" data-page="profile">
+    <i class='bx bx-user'></i>
+    <span>Profile</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
     <i class='bx bx-cog'></i>
     <span>Admin</span>
   </a>
@@ -235,6 +236,15 @@
         searchInput.value = initialQuery;
         searchServices(initialQuery, 'catalog-grid');
       }
+    }
+
+    if (urlParams.get('open') === 'customize' || urlParams.get('customize')) {
+      setTimeout(async () => {
+        const services = await fetchServices();
+        const customizeId = urlParams.get('customize');
+        const s = (customizeId && services.find(x => String(x.id) === String(customizeId))) || services[0] || { id: 'custom-suit', name: 'Custom Bespoke Suit', base_price: 2500, category: 'Formal Wear' };
+        if (typeof openCustomizeModal === 'function') openCustomizeModal(s);
+      }, 400);
     }
   });
 </script>

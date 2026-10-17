@@ -263,7 +263,7 @@
 
 <!-- --QUOTATION UPDATE MODAL-- -->
 <div class="modal-overlay" id="quote-modal" role="dialog" aria-modal="true">
-  <div class="modal-sheet" style="position:relative;">
+  <div class="modal-sheet" style="position:relative;padding-bottom:calc(32px + env(safe-area-inset-bottom));">
     <div class="modal-drag-bar"></div>
     <button class="modal-close" onclick="closeModal('quote-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
     <h2 class="modal-title">Update Order</h2>
@@ -271,18 +271,22 @@
     <input type="hidden" id="quote-order-id">
     <div class="form-group">
       <label class="form-label" for="quote-price-input">Quotation Price (₱)</label>
-      <input type="number" id="quote-price-input" class="form-input" placeholder="Enter price in PHP" min="0" step="50">
+      <input type="number" id="quote-price-input" class="form-input" placeholder="Enter price in PHP" min="0" step="50" style="min-height:44px;">
     </div>
     <div class="form-group">
       <label class="form-label" for="quote-status-select">Update Status</label>
-      <select id="quote-status-select" class="form-select">
+      <select id="quote-status-select" class="form-select" style="min-height:44px;">
         <option value="Pending Quote">Pending Quote</option>
         <option value="Quoted">Quoted</option>
         <option value="In Production">In Production</option>
         <option value="Completed">Completed</option>
       </select>
     </div>
-    <button class="btn btn-primary btn-full" onclick="submitQuoteUpdate()"><i class='bx bx-check'></i> Save Changes</button>
+    <div class="form-group">
+      <label class="form-label" for="quote-admin-notes">Notes to Customer (optional)</label>
+      <textarea id="quote-admin-notes" class="form-textarea" placeholder="Any notes or instructions for the customer…" style="min-height:80px;"></textarea>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitQuoteUpdate()" style="min-height:48px;"><i class='bx bx-check'></i> Save Changes</button>
   </div>
 </div>
 
@@ -302,6 +306,10 @@
   <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
+  </a>
+  <a href="/pages/profile.html" class="nav-item customer-only-nav hidden" data-page="profile" style="display:none;">
+    <i class='bx bx-user'></i>
+    <span>Profile</span>
   </a>
   <a href="/pages/admin-dashboard.html" class="nav-item active admin-only-nav" data-page="admin">
     <i class='bx bx-cog'></i>

@@ -8,10 +8,13 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- --1. PROFILES TABLE (Linked to auth.users)--
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id          UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name   TEXT NOT NULL,
-  role        TEXT NOT NULL DEFAULT 'customer',
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id             UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name      TEXT NOT NULL,
+  role           TEXT NOT NULL DEFAULT 'customer',
+  phone          TEXT,
+  preferred_fit  TEXT DEFAULT 'Regular',
+  measurements   JSONB DEFAULT '{}'::jsonb,
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- --2. SERVICES TABLE--
@@ -93,7 +96,73 @@ CREATE POLICY "orders_update" ON public.orders FOR UPDATE
     auth.uid() = user_id
     OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
     OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
+
+-- --4. NOTIFICATIONS TABLE--
+CREATE TABLE IF NOT EXISTS public.notifications (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  order_id    UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  title       TEXT NOT NULL,
+  message     TEXT NOT NULL,
+  is_read     BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_read  ON public.notifications(is_read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created  ON public.notifications(created_at DESC);
+
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "notifications_select_own" ON public.notifications;
+CREATE POLICY "notifications_select_own" ON public.notifications FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "notifications_update_own" ON public.notifications;
+CREATE POLICY "notifications_update_own" ON public.notifications FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "notifications_insert_admin" ON public.notifications;
+CREATE POLICY "notifications_insert_admin" ON public.notifications FOR INSERT
+  WITH CHECK (
+    auth.role() = 'service_role'
+    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
+  );
+
+-- --5. TRIGGER: auto-notify customer on order status change--
+CREATE OR REPLACE FUNCTION public.notify_on_order_status_change()
+RETURNS TRIGGER LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE v_title TEXT; v_message TEXT; v_short TEXT;
+BEGIN
+  IF OLD.status IS NOT DISTINCT FROM NEW.status THEN RETURN NEW; END IF;
+  v_short := LEFT(NEW.id::TEXT, 8);
+  CASE NEW.status
+    WHEN 'Quoted'        THEN v_title := 'Quotation Ready!';    v_message := 'Your order #' || v_short || ' has been quoted. Tap to review.';
+    WHEN 'In Production' THEN v_title := 'Order In Production'; v_message := 'Your order #' || v_short || ' is being crafted!';
+    WHEN 'Completed'     THEN v_title := 'Order Completed!';    v_message := 'Your order #' || v_short || ' is ready for pickup/delivery.';
+    ELSE                      v_title := 'Order Updated';       v_message := 'Your order #' || v_short || ' status: ' || NEW.status || '.';
+  END CASE;
+  INSERT INTO public.notifications (user_id, order_id, title, message)
+  VALUES (NEW.user_id, NEW.id, v_title, v_message);
+  RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RAISE WARNING 'notify trigger: %', SQLERRM; RETURN NEW;
+END; $$;
+
+DROP TRIGGER IF EXISTS trg_notify_order_status ON public.orders;
+CREATE TRIGGER trg_notify_order_status
+  AFTER UPDATE OF status ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.notify_on_order_status_change();
+
+-- Realtime
+ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
 
 -- ============================================================
 -- SEED DATA (Run this in Supabase SQL Editor to populate services)
@@ -106,3 +175,4 @@ INSERT INTO public.services (name, category, base_price, image_url, description)
   ('Corporate Uniform', 'Uniforms', 1200, '/assets/images/service_uniform.png', 'Custom corporate uniforms for offices, restaurants, and organizations. Bulk orders available.'),
   ('Wedding Entourage Set', 'Wedding', 12000, '/assets/images/service_suit.png', 'Complete coordinated outfit set for wedding entourages. Bespoke designs for the entire party.')
 ON CONFLICT DO NOTHING;
+

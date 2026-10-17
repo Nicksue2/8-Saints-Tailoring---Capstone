@@ -217,7 +217,7 @@ function openCustomizeModal(service) {
   window.openModal('customize-modal');
 }
 
-// --SIZE CHIP SELECTION--
+// --SIZE CHIP SELECTION & MEASUREMENTS AUTO-FILL--
 function resetSizeSelection() {
   document.querySelectorAll('.size-chip').forEach(c => c.classList.remove('selected'));
   const firstChip = document.querySelector('.size-chip[data-size="S"]') || document.querySelector('.size-chip');
@@ -227,6 +227,22 @@ function resetSizeSelection() {
   const customSection = document.getElementById('custom-measurements-section');
   if (stdSection) stdSection.classList.remove('hidden');
   if (customSection) customSection.classList.add('hidden');
+
+  // Pre-fill saved measurements from local storage or profile
+  try {
+    const raw = localStorage.getItem('8st_saved_measurements');
+    if (raw) {
+      const m = JSON.parse(raw);
+      const fields = ['chest', 'waist', 'shoulder', 'sleeve', 'length', 'hip', 'inseam'];
+      fields.forEach(f => {
+        const el = document.getElementById(`m-${f}`);
+        if (el && m[f] !== undefined) el.value = m[f];
+      });
+      if (m.notes && document.getElementById('order-design-notes')) {
+        document.getElementById('order-design-notes').value = m.notes;
+      }
+    }
+  } catch (e) {}
 }
 
 // --DOM INITIALIZATION--
@@ -322,11 +338,11 @@ async function renderAdminServicesTable(containerId) {
       <tbody>
         ${services.map(s => `
         <tr>
-          <td><img src="${s.image_url || '/assets/images/service_suit.png'}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" alt="${s.name}" onerror="this.src='/assets/images/hero.png'"></td>
-          <td><strong>${s.name}</strong><br><small style="color:var(--clr-text-muted)">${(s.description || '').slice(0, 50)}…</small></td>
-          <td><span class="service-card-badge">${s.category}</span></td>
-          <td>${window.formatPHP(s.base_price)}</td>
-          <td>
+          <td data-label="Image"><img src="${s.image_url || '/assets/images/service_suit.png'}" style="width:48px;height:48px;border-radius:8px;object-fit:cover;" alt="${s.name}" onerror="this.src='/assets/images/hero.png'"></td>
+          <td data-label="Name"><strong>${s.name}</strong><br><small style="color:var(--clr-text-muted)">${(s.description || '').slice(0, 50)}…</small></td>
+          <td data-label="Category"><span class="service-card-badge">${s.category}</span></td>
+          <td data-label="Base Price">${window.formatPHP(s.base_price)}</td>
+          <td data-label="Actions">
             <div style="display:flex;gap:6px;flex-wrap:wrap;">
               <button class="btn btn-sm btn-outline" onclick="openServiceForm('${s.id}')">Edit</button>
               <button class="btn btn-sm btn-danger" onclick="deleteService('${s.id}')">Delete</button>

@@ -77,10 +77,11 @@
 <!-- --MAIN PAGE WRAPPER-- -->
 <main class="page-wrapper">
 
-  <!-- --GREETING PILL BAR-- -->
-  <div class="greeting-pill">
-    <span class="greeting-name">Welcome, <span id="greeting-name">Guest</span>!</span>
-    <span class="greeting-date" id="greeting-date">—</span>
+  <!-- --PAGE HEADER BANNER-- -->
+  <div class="page-header-banner">
+    <div class="page-header-badge"><i class='bx bx-clipboard'></i> Order Management</div>
+    <h1 class="page-header-title">My Orders & Quotations</h1>
+    <p class="page-header-sub">Track active tailoring production, approve quotations, and view completed garment history.</p>
   </div>
 
   <!-- --BENTO WIDGETS (CUSTOMER DASHBOARD)-- -->
@@ -93,8 +94,11 @@
       <div class="bento-widget-sub">In progress right now</div>
     </div>
     <!-- Right Widget: My Size Profile -->
-    <div class="bento-widget">
-      <div class="bento-widget-icon"><i class='bx bx-ruler'></i></div>
+    <div class="bento-widget" id="size-profile" onclick="window.location.href='/pages/profile.html'" style="cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="bento-widget-icon"><i class='bx bx-ruler'></i></div>
+        <span style="font-size:0.72rem;font-weight:700;color:var(--accent-color);">Edit Profile →</span>
+      </div>
       <div class="bento-widget-title">My Size Profile</div>
       <div class="size-profile-list" id="size-profile-list">
         <p class="bento-widget-sub">Loading…</p>
@@ -124,7 +128,7 @@
 
 </main>
 
-<!-- --BOTTOM NAVIGATION (MOBILE)-- -->
+<!-- --BOTTOM NAVIGATION (MOBILE GLASSMORPHISM)-- -->
 <nav class="bottom-nav">
   <a href="/index.html" class="nav-item" data-page="index">
     <i class='bx bx-home-alt'></i>
@@ -141,7 +145,11 @@
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav" data-page="admin" style="display:none;">
+  <a href="/pages/profile.html" class="nav-item customer-only-nav" data-page="profile">
+    <i class='bx bx-user'></i>
+    <span>Profile</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
     <i class='bx bx-cog'></i>
     <span>Admin</span>
   </a>

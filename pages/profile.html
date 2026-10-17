@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Manage your 8 Saints Tailoring profile, saved measurements, and tailoring preferences.">
+  <meta name="theme-color" content="#1A1C20">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/images/logo.png" type="image/png">
+  <title>My Profile & Size Measurements — 8 Saints Tailoring</title>
+  <!-- --BOXICONS CDN-- -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- --SUPABASE CDN-- -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- --STICKY TOP HEADER (GLASSMORPHISM)-- -->
+<header class="app-header">
+  <div class="header-left">
+    <a href="/index.html" class="header-icon-btn" aria-label="Back to Home">
+      <i class='bx bx-arrow-back'></i>
+    </a>
+  </div>
+  <a href="/index.html" class="header-logo-wrap">
+    <img src="/assets/images/logo.png" alt="8 Saints Tailoring Logo" class="header-logo-img">
+    <span class="header-logo-text">My Profile</span>
+  </a>
+  <div class="header-right">
+    <button class="header-icon-btn" id="darkmode-btn" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">
+      <i class='bx bx-moon'></i>
+    </button>
+    <button class="header-icon-btn logout-btn" id="header-auth-btn" title="Logout" aria-label="Logout">
+      <i class='bx bx-log-out'></i>
+    </button>
+    <button class="header-icon-btn" id="notif-btn" aria-label="Notifications">
+      <i class='bx bx-bell'></i>
+    </button>
+  </div>
+</header>
+
+<!-- --OFFLINE BANNER-- -->
+<div id="offline-banner" class="hidden"><i class='bx bx-wifi-off'></i> Offline Mode — Showing Cached Data</div>
+
+<!-- --SIDEBAR (PC ONLY)-- -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">8 Saints</div>
+    <div class="sidebar-brand-sub">Tailoring Marketplace</div>
+  </div>
+  <a href="/index.html" class="sidebar-nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    Home
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    Catalog
+  </a>
+  <a href="/pages/customer-orders.html" class="sidebar-nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    My Orders
+  </a>
+  <a href="/pages/profile.html" class="sidebar-nav-item active customer-only-nav" data-page="profile">
+    <i class='bx bx-user'></i>
+    Profile
+  </a>
+  <a href="/pages/admin-dashboard.html" class="sidebar-nav-item admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    Admin
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+</aside>
+
+<!-- --MAIN PAGE WRAPPER-- -->
+<main class="page-wrapper">
+
+  <!-- --PAGE HEADER BANNER-- -->
+  <div class="page-header-banner">
+    <div class="page-header-badge"><i class='bx bx-user-check'></i> Account & Tailoring Profile</div>
+    <h1 class="page-header-title">My Size Profile</h1>
+    <p class="page-header-sub">Save your body measurements once to enjoy seamless custom tailoring and instant quotation reviews.</p>
+  </div>
+
+  <!-- --ACCOUNT DETAILS CARD-- -->
+  <div class="profile-card">
+    <div class="profile-avatar-row">
+      <div class="profile-avatar" id="profile-avatar">8S</div>
+      <div>
+        <div class="profile-name" id="profile-name">Customer</div>
+        <div class="profile-email" id="profile-email">Loading account details…</div>
+        <span class="profile-role-tag" id="profile-role">CUSTOMER</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- --SAVED MEASUREMENTS CARD-- -->
+  <div class="profile-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;border-bottom:1px solid var(--clr-border-light);padding-bottom:12px;">
+      <div>
+        <h2 style="font-size:1.05rem;font-weight:700;color:var(--clr-text-primary);"><i class='bx bx-ruler' style="color:var(--accent-color);"></i> Body Measurements</h2>
+        <p style="font-size:0.75rem;color:var(--clr-text-muted);">Enter tape measurements in inches. Auto-fills your custom orders.</p>
+      </div>
+      <span id="measurements-count-badge" style="font-size:0.75rem;font-weight:700;color:var(--accent-color);background:rgba(197,160,89,0.15);padding:3px 10px;border-radius:var(--radius-full);">0 saved</span>
+    </div>
+
+    <!-- PREFERRED FIT SELECTION -->
+    <div class="form-group">
+      <label class="form-label" for="profile-preferred-fit">Preferred Fit</label>
+      <select id="profile-preferred-fit" class="form-select">
+        <option value="Slim Fit">Slim Fit (Fitted & Modern)</option>
+        <option value="Regular Fit" selected>Regular Fit (Classic & Comfortable)</option>
+        <option value="Relaxed Fit">Relaxed Fit (Roomy & Traditional)</option>
+      </select>
+    </div>
+
+    <!-- MEASUREMENTS FORM GRID -->
+    <div class="measurements-form-grid">
+      <div class="form-group">
+        <label class="form-label" for="pm-chest">Chest (inches)</label>
+        <input type="number" id="pm-chest" class="form-input" placeholder='e.g. 38"' min="20" max="75" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-waist">Waist (inches)</label>
+        <input type="number" id="pm-waist" class="form-input" placeholder='e.g. 32"' min="20" max="75" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-shoulder">Shoulder (inches)</label>
+        <input type="number" id="pm-shoulder" class="form-input" placeholder='e.g. 17.5"' min="10" max="35" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-sleeve">Sleeve (inches)</label>
+        <input type="number" id="pm-sleeve" class="form-input" placeholder='e.g. 24.5"' min="10" max="45" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-length">Jacket / Shirt Length</label>
+        <input type="number" id="pm-length" class="form-input" placeholder='e.g. 29"' min="15" max="60" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-hip">Hip (inches)</label>
+        <input type="number" id="pm-hip" class="form-input" placeholder='e.g. 40"' min="20" max="75" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-inseam">Inseam / Trouser Length</label>
+        <input type="number" id="pm-inseam" class="form-input" placeholder='e.g. 31"' min="15" max="50" step="0.5">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="pm-phone">Contact Phone</label>
+        <input type="tel" id="pm-phone" class="form-input" placeholder="e.g. 0917-123-4567">
+      </div>
+    </div>
+
+    <!-- NOTES / SPECIAL REQUIREMENTS -->
+    <div class="form-group">
+      <label class="form-label" for="pm-notes">Special Fitting & Fabric Notes</label>
+      <textarea id="pm-notes" class="form-textarea" placeholder="e.g. Broad shoulders, prefers lightweight fabrics, formal occasion preference…"></textarea>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-full" id="save-measurements-btn" onclick="saveProfileMeasurements()" style="min-height:48px;">
+      <i class='bx bx-check'></i> Save Measurements
+    </button>
+  </div>
+
+  <!-- --QUICK ACTIONS-- -->
+  <div class="bento-row">
+    <div class="bento-widget accent" onclick="window.location.href='/pages/customer-orders.html'" style="cursor:pointer;">
+      <div class="bento-widget-icon"><i class='bx bx-package'></i></div>
+      <div class="bento-widget-title">My Orders</div>
+      <div class="bento-widget-value" style="font-size:1.15rem;font-weight:700;">Track Orders →</div>
+      <div class="bento-widget-sub">View quotations & production</div>
+    </div>
+    <div class="bento-widget" onclick="window.location.href='/pages/catalog.html'" style="cursor:pointer;">
+      <div class="bento-widget-icon"><i class='bx bx-cut'></i></div>
+      <div class="bento-widget-title">Atelier Catalog</div>
+      <div class="bento-widget-value" style="font-size:1.15rem;font-weight:700;color:var(--clr-primary);">Explore →</div>
+      <div class="bento-widget-sub">Browse bespoke services</div>
+    </div>
+  </div>
+
+</main>
+
+<!-- --BOTTOM NAVIGATION (MOBILE GLASSMORPHISM)-- -->
+<nav class="bottom-nav">
+  <a href="/index.html" class="nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    <span>Home</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    <span>Catalog</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
+    <i class='bx bx-plus'></i>
+  </a>
+  <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    <span>Orders</span>
+  </a>
+  <a href="/pages/profile.html" class="nav-item active customer-only-nav" data-page="profile">
+    <i class='bx bx-user'></i>
+    <span>Profile</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- --TOAST CONTAINER-- -->
+<div id="toast-container"></div>
+
+<!-- --SCRIPTS-- -->
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/services.js"></script>
+<script src="/js/orders.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    await loadUserProfileData();
+  });
+
+  async function loadUserProfileData() {
+    const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+    if (!user) {
+      document.getElementById('profile-name').textContent = 'Guest User';
+      document.getElementById('profile-email').textContent = 'Please log in to manage your measurements.';
+      document.getElementById('profile-role').textContent = 'GUEST';
+      return;
+    }
+
+    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Customer';
+    const email = user.email || '—';
+    const role = (window.__currentUserRole || user.user_metadata?.role || 'customer').toUpperCase();
+
+    document.getElementById('profile-name').textContent = name;
+    document.getElementById('profile-email').textContent = email;
+    document.getElementById('profile-role').textContent = role;
+
+    // Avatar initials
+    const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '8S';
+    document.getElementById('profile-avatar').textContent = initials;
+
+    // Fetch saved measurements from Supabase or cache
+    let measurements = {};
+    let fit = 'Regular Fit';
+    let phone = '';
+
+    const client = window.__8ST?.getClient?.();
+    if (client) {
+      try {
+        const { data: profile } = await client
+          .from('profiles')
+          .select('measurements, phone, preferred_fit')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          measurements = profile.measurements || {};
+          fit = profile.preferred_fit || 'Regular Fit';
+          phone = profile.phone || '';
+        }
+      } catch (e) {
+        console.warn('Profile load note:', e);
+      }
+    }
+
+    // Fallback to localStorage cache
+    if (!Object.keys(measurements).length) {
+      try {
+        const cached = localStorage.getItem('8st_saved_measurements');
+        if (cached) measurements = JSON.parse(cached);
+      } catch {}
+    }
+
+    // Populate inputs
+    const fields = ['chest', 'waist', 'shoulder', 'sleeve', 'length', 'hip', 'inseam'];
+    let count = 0;
+    fields.forEach(f => {
+      const el = document.getElementById(`pm-${f}`);
+      if (el && measurements[f] !== undefined && measurements[f] !== '') {
+        el.value = measurements[f];
+        count++;
+      }
+    });
+
+    if (phone) document.getElementById('pm-phone').value = phone;
+    if (fit) document.getElementById('profile-preferred-fit').value = fit;
+    if (measurements.notes) document.getElementById('pm-notes').value = measurements.notes;
+
+    document.getElementById('measurements-count-badge').textContent = `${count} saved`;
+  }
+
+  async function saveProfileMeasurements() {
+    const user = window.__currentUser || window.__8ST?.getSessionUser?.();
+    if (!user) {
+      showToast('Please log in to save your measurements.', 'error');
+      setTimeout(() => { window.location.href = '/pages/auth.html'; }, 700);
+      return;
+    }
+
+    const btn = document.getElementById('save-measurements-btn');
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i class='bx bx-loader-alt bx-spin'></i> Saving…`; }
+
+    const fields = ['chest', 'waist', 'shoulder', 'sleeve', 'length', 'hip', 'inseam'];
+    const measurements = {};
+    let count = 0;
+
+    fields.forEach(f => {
+      const val = parseFloat(document.getElementById(`pm-${f}`)?.value);
+      if (!isNaN(val) && val > 0) {
+        measurements[f] = val;
+        count++;
+      }
+    });
+
+    const notes = document.getElementById('pm-notes')?.value?.trim();
+    if (notes) measurements.notes = notes;
+
+    const fit = document.getElementById('profile-preferred-fit')?.value || 'Regular Fit';
+    const phone = document.getElementById('pm-phone')?.value?.trim() || '';
+
+    // Cache locally
+    try {
+      localStorage.setItem('8st_saved_measurements', JSON.stringify(measurements));
+      localStorage.setItem('8st_preferred_fit', fit);
+    } catch {}
+
+    // Save to Supabase profiles
+    const client = window.__8ST?.getClient?.();
+    if (client) {
+      try {
+        const { error } = await client
+          .from('profiles')
+          .update({
+            measurements: measurements,
+            preferred_fit: fit,
+            phone: phone
+          })
+          .eq('id', user.id);
+
+        if (error) {
+          console.warn('Profile update error:', error);
+          showToast('Saved to local device. (' + error.message + ')', 'info');
+        } else {
+          showToast('Measurements & Size Profile saved successfully!', 'success');
+        }
+      } catch (err) {
+        showToast('Saved to local device.', 'success');
+      }
+    } else {
+      showToast('Measurements saved to this device.', 'success');
+    }
+
+    document.getElementById('measurements-count-badge').textContent = `${count} saved`;
+    if (btn) { btn.disabled = false; btn.innerHTML = `<i class='bx bx-check'></i> Save Measurements`; }
+  }
+</script>
+</body>
+</html>

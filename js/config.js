@@ -83,11 +83,23 @@ async function dbFrom(table) {
   return supabaseClient.from(table);
 }
 
+const EMAILJS_SERVICE_ID = window.__env?.EMAILJS_SERVICE_ID || '';
+const EMAILJS_TEMPLATE_ID = window.__env?.EMAILJS_TEMPLATE_ID || '';
+const EMAILJS_PUBLIC_KEY = window.__env?.EMAILJS_PUBLIC_KEY || '';
+
+// Initialize EmailJS if public key is provided and library is present
+if (EMAILJS_PUBLIC_KEY && window.emailjs && typeof window.emailjs.init === 'function') {
+  window.emailjs.init(EMAILJS_PUBLIC_KEY);
+}
+
 // --ENV EXPORT--
 window.__8ST = {
   SUPABASE_URL,
   SUPABASE_ANON_KEY,
   CLOUDFLARE_SITE_KEY,
+  EMAILJS_SERVICE_ID,
+  EMAILJS_TEMPLATE_ID,
+  EMAILJS_PUBLIC_KEY,
   initSupabase,
   getCurrentUser,
   signIn,

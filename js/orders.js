@@ -286,16 +286,16 @@ async function renderAdminOrders(containerId, filterStatus = 'All') {
       <tbody>
         ${filtered.map(o => `
         <tr>
-          <td><strong>#${String(o.id).slice(0, 8)}</strong><br><small style="color:var(--clr-text-muted)">${window.formatDate(o.created_at)}</small></td>
-          <td>${o.customer_name || 'Customer'}</td>
-          <td>${o.service_name || 'Custom'}</td>
-          <td>${o.standard_size || 'Custom'}</td>
-          <td>
+          <td data-label="Order ID"><strong>#${String(o.id).slice(0, 8)}</strong><br><small style="color:var(--clr-text-muted)">${window.formatDate(o.created_at)}</small></td>
+          <td data-label="Customer">${o.customer_name || 'Customer'}</td>
+          <td data-label="Service">${o.service_name || 'Custom'}</td>
+          <td data-label="Size">${o.standard_size || 'Custom'}</td>
+          <td data-label="Measurements">
             <button class="btn btn-sm btn-outline" onclick="viewMeasurements('${o.id}')">View</button>
           </td>
-          <td>${window.statusBadgeHTML(o.status)}</td>
-          <td>${o.quotation_price ? window.formatPHP(o.quotation_price) : '<em style="color:var(--clr-text-muted)">—</em>'}</td>
-          <td>
+          <td data-label="Status">${window.statusBadgeHTML(o.status)}</td>
+          <td data-label="Quotation">${o.quotation_price ? window.formatPHP(o.quotation_price) : '<em style="color:var(--clr-text-muted)">—</em>'}</td>
+          <td data-label="Action">
             <button class="btn btn-sm btn-primary" onclick="openQuoteModal('${o.id}')">Update</button>
           </td>
         </tr>`).join('')}
@@ -339,6 +339,9 @@ function openQuoteModal(orderId) {
   document.getElementById('quote-price-input').value = order.quotation_price || '';
   document.getElementById('quote-status-select').value = order.status;
 
+  const notesEl = document.getElementById('quote-admin-notes');
+  if (notesEl) notesEl.value = order.design_notes || '';
+
   window.openModal('quote-modal');
 }
 
@@ -346,9 +349,11 @@ window.openQuoteModal = openQuoteModal;
 
 // --SUBMIT QUOTATION UPDATE (ADMIN)--
 async function submitQuoteUpdate() {
-  const orderId = document.getElementById('quote-order-id').value;
-  const price = parseFloat(document.getElementById('quote-price-input').value);
-  const status = document.getElementById('quote-status-select').value;
+  const orderId  = document.getElementById('quote-order-id')?.value?.trim();
+  const priceVal = document.getElementById('quote-price-input')?.value;
+  const status   = document.getElementById('quote-status-select')?.value;
+  const notes    = document.getElementById('quote-admin-notes')?.value?.trim() || '';
+  const btn      = document.querySelector('#quote-modal .btn-primary');
 
   if (!orderId || !status) {
     window.showToast('Missing order details.', 'error');
@@ -356,31 +361,109 @@ async function submitQuoteUpdate() {
   }
 
   const payload = { status };
-  if (!isNaN(price)) payload.quotation_price = price;
+  const price = parseFloat(priceVal);
+  if (!isNaN(price) && priceVal !== '') payload.quotation_price = price;
+  if (notes) payload.design_notes = notes;
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
   const client = window.__8ST?.getClient?.();
-  let success = false;
 
   if (client) {
     try {
-      const { error } = await client.from('orders').update(payload).eq('id', orderId);
-      success = !error;
-      if (error) window.showToast(error.message, 'error');
+      const { data, error } = await client
+        .from('orders')
+        .update(payload)
+        .eq('id', orderId)
+        .select();
+
+      if (error) {
+        console.error('[8ST] Order update error:', error);
+        window.showToast('Save failed: ' + (error.message || 'Unknown error'), 'error');
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        console.error('[8ST] Order update returned no rows — check RLS policy for admin role.');
+        window.showToast('Save failed: No rows updated. Check admin permissions.', 'error');
+        return;
+      }
+
+      // Update local cache
+      const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
+      if (idx > -1) allOrders[idx] = { ...allOrders[idx], ...payload };
+      window.cacheData('all_orders', allOrders);
+
+      window.showToast('Order updated successfully!', 'success');
+      window.closeModal('quote-modal');
+
+      // Refresh admin UI
+      const currentFilter = document.querySelector('.order-filter-row .filter-pill.active')?.textContent || 'All';
+      await renderAdminOrders('admin-orders-container', currentFilter);
+      await renderAdminAnalytics();
+
+      // Dispatch in-app notification for order owner (guarantee alongside DB trigger)
+      try {
+        const order = allOrders.find(o => String(o.id) === String(orderId));
+        if (order && order.user_id) {
+          const statusTitles = {
+            'Quoted': 'Quotation Ready!',
+            'In Production': 'Order In Production',
+            'Completed': 'Order Completed!'
+          };
+          const title = statusTitles[status] || 'Order Status Updated';
+          const msg = `Your order #${String(order.id).slice(0, 8)} status changed to: ${status}.`;
+          client.from('notifications').insert([{
+            user_id: order.user_id,
+            order_id: order.id,
+            title: title,
+            message: msg,
+            is_read: false
+          }]).catch(e => console.warn('[8ST] Notification insert fallback note:', e));
+        }
+      } catch (ne) {
+        console.warn('[8ST] Notification dispatch note:', ne);
+      }
+
+      // Optionally send EmailJS email for Quoted / Completed
+      if ((status === 'Quoted' || status === 'Completed') && window.__8ST?.EMAILJS_SERVICE_ID) {
+        try {
+          const order = allOrders.find(o => String(o.id) === String(orderId));
+          if (order && window.emailjs) {
+            await window.emailjs.send(
+              window.__8ST.EMAILJS_SERVICE_ID,
+              window.__8ST.EMAILJS_TEMPLATE_ID,
+              {
+                to_name:    order.customer_name || 'Valued Customer',
+                order_id:   String(order.id).slice(0, 8),
+                status:     status,
+                price:      payload.quotation_price ? window.formatPHP(payload.quotation_price) : '—',
+                service:    order.service_name || 'Custom Garment',
+                reply_to:   order.customer_email || ''
+              }
+            );
+          }
+        } catch (emailErr) {
+          console.warn('[8ST] EmailJS send failed (non-critical):', emailErr);
+        }
+      }
+
     } catch (err) {
-      window.showToast(err.message, 'error');
+      console.error('[8ST] submitQuoteUpdate exception:', err);
+      window.showToast('Unexpected error: ' + (err.message || err), 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
     }
   } else {
+    // Offline fallback
     const idx = allOrders.findIndex(o => String(o.id) === String(orderId));
     if (idx > -1) allOrders[idx] = { ...allOrders[idx], ...payload };
     window.cacheData('all_orders', allOrders);
-    success = true;
-  }
-
-  if (success) {
-    window.showToast('Order updated!', 'success');
+    window.showToast('Order updated (offline mode).', 'info');
     window.closeModal('quote-modal');
     renderAdminOrders('admin-orders-container', 'All');
     renderAdminAnalytics();
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Changes'; }
   }
 }
 
