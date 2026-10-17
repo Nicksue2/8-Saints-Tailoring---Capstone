@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="8 Saints Tailoring admin dashboard — manage services, view orders, update quotations, and track analytics.">
+  <meta name="theme-color" content="#1A1C20">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/images/logo.png" type="image/png">
+  <title>Admin Dashboard — 8 Saints Tailoring</title>
+  <!-- --BOXICONS CDN-- -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- --SUPABASE CDN-- -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* --ADMIN DASHBOARD EXTRA STYLES-- */
+    .admin-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .admin-panel-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--clr-text-primary);
+    }
+    .admin-section { margin-bottom: 28px; }
+    .measurements-grid-admin { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .order-filter-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- --STICKY TOP HEADER-- -->
+<header class="app-header">
+  <div class="header-left">
+    <a href="/index.html" class="header-icon-btn" aria-label="Back to Home">
+      <i class='bx bx-arrow-back'></i>
+    </a>
+  </div>
+  <a href="/index.html" class="header-logo-wrap">
+    <img src="/assets/images/logo.png" alt="8 Saints Tailoring Logo" class="header-logo-img">
+    <span class="header-logo-text">Admin Dashboard</span>
+  </a>
+  <div class="header-right">
+    <button class="header-icon-btn" id="darkmode-btn" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">
+      <i class='bx bx-moon'></i>
+    </button>
+    <a href="/pages/auth.html" class="header-auth-btn" id="header-auth-btn">Logout</a>
+    <button class="header-icon-btn" id="notif-btn" aria-label="Notifications">
+      <i class='bx bx-bell'></i>
+    </button>
+  </div>
+</header>
+
+<!-- --OFFLINE BANNER-- -->
+<div id="offline-banner" class="hidden"><i class='bx bx-wifi-off'></i> Offline Mode — Showing Cached Data</div>
+
+<!-- --SIDEBAR (PC ONLY)-- -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">8 Saints</div>
+    <div class="sidebar-brand-sub">Tailoring Marketplace</div>
+  </div>
+  <a href="/index.html" class="sidebar-nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    Home
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    Catalog
+  </a>
+  <a href="/pages/customer-orders.html" class="sidebar-nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    My Orders
+  </a>
+  <a href="/pages/admin-dashboard.html" class="sidebar-nav-item active admin-only-nav" data-page="admin">
+    <i class='bx bx-cog'></i>
+    Admin
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+</aside>
+
+<!-- --MAIN PAGE WRAPPER-- -->
+<main class="page-wrapper">
+
+  <!-- --GREETING PILL BAR-- -->
+  <div class="greeting-pill">
+    <span class="greeting-name">Admin: <span id="greeting-name">Dashboard</span></span>
+    <span class="greeting-date" id="greeting-date">—</span>
+  </div>
+
+  <!-- --ADMIN TABS-- -->
+  <div class="tabs-row">
+    <button class="tab-btn active" id="tab-analytics-btn" onclick="switchAdminTab('analytics', this)">
+      <i class='bx bx-bar-chart-alt-2'></i> Analytics
+    </button>
+    <button class="tab-btn" id="tab-services-btn" onclick="switchAdminTab('services', this)">
+      <i class='bx bx-cut'></i> Services
+    </button>
+    <button class="tab-btn" id="tab-orders-btn" onclick="switchAdminTab('orders', this)">
+      <i class='bx bx-list-ul'></i> Orders
+    </button>
+  </div>
+
+  <!-- --ANALYTICS TAB-- -->
+  <div id="tab-analytics" class="admin-section">
+    <h1 style="font-size:1.1rem;font-weight:700;margin-bottom:14px;">Overview</h1>
+
+    <!-- --ANALYTICS SUMMARY CARDS-- -->
+    <div class="analytics-grid">
+      <div class="analytics-card total">
+        <div class="analytics-card-label">Total Orders</div>
+        <div class="analytics-card-value" id="stat-total">—</div>
+        <div class="analytics-card-sub">All time</div>
+      </div>
+      <div class="analytics-card pending">
+        <div class="analytics-card-label">Pending Quotes</div>
+        <div class="analytics-card-value" id="stat-pending">—</div>
+        <div class="analytics-card-sub">Awaiting review</div>
+      </div>
+      <div class="analytics-card production">
+        <div class="analytics-card-label">In Production</div>
+        <div class="analytics-card-value" id="stat-production">—</div>
+        <div class="analytics-card-sub">Currently crafting</div>
+      </div>
+      <div class="analytics-card completed">
+        <div class="analytics-card-label">Completed</div>
+        <div class="analytics-card-value" id="stat-completed">—</div>
+        <div class="analytics-card-sub">Delivered</div>
+      </div>
+    </div>
+
+    <!-- --QUICK ORDER SUMMARY-- -->
+    <div class="section-card admin-section">
+      <div class="section-card-title">Recent Orders Snapshot</div>
+      <div id="analytics-recent-orders">
+        <div class="spinner"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- --SERVICES CRUD TAB-- -->
+  <div id="tab-services" class="admin-section hidden">
+    <div class="admin-panel-header">
+      <h2 class="admin-panel-title">Manage Services</h2>
+      <button class="btn btn-primary btn-sm" onclick="openServiceForm()"><i class='bx bx-plus'></i> Add Service</button>
+    </div>
+    <div id="admin-services-container">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <!-- --ORDERS CRUD TAB-- -->
+  <div id="tab-orders" class="admin-section hidden">
+    <div class="admin-panel-header">
+      <h2 class="admin-panel-title">All Orders</h2>
+    </div>
+    <!-- Status Filter Row -->
+    <div class="order-filter-row">
+      <button class="filter-pill active" onclick="filterAdminOrders('All', this)">All</button>
+      <button class="filter-pill" onclick="filterAdminOrders('Pending Quote', this)">Pending Quote</button>
+      <button class="filter-pill" onclick="filterAdminOrders('Quoted', this)">Quoted</button>
+      <button class="filter-pill" onclick="filterAdminOrders('In Production', this)">In Production</button>
+      <button class="filter-pill" onclick="filterAdminOrders('Completed', this)">Completed</button>
+    </div>
+    <div id="admin-orders-container">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+</main>
+
+<!-- --SERVICE CRUD MODAL (ADD / EDIT SERVICE)-- -->
+<div class="modal-overlay" id="service-modal" role="dialog" aria-modal="true" aria-labelledby="service-form-title">
+  <div class="modal-sheet" style="position:relative;">
+    <div class="modal-drag-bar"></div>
+    <button class="modal-close" onclick="closeModal('service-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
+    <h2 class="modal-title" id="service-form-title">Add New Service</h2>
+    <input type="hidden" id="service-form-id">
+    
+    <div class="form-group">
+      <label class="form-label" for="service-form-name">Service Name *</label>
+      <input type="text" id="service-form-name" class="form-input" placeholder="e.g. Custom Barong Tagalog" required>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label" for="service-form-category">Category *</label>
+      <select id="service-form-category" class="form-select">
+        <option value="">— Select Category —</option>
+        <option value="Uniform">Uniform</option>
+        <option value="Custom Suit">Custom Suit</option>
+        <option value="Barong">Barong</option>
+        <option value="Alterations">Alterations</option>
+        <option value="Formal Wear">Formal Wear</option>
+        <option value="Ladies Wear">Ladies Wear</option>
+        <option value="Wedding">Wedding</option>
+        <option value="Kids Wear">Kids Wear</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label" for="service-form-price">Base Price (₱) *</label>
+      <input type="number" id="service-form-price" class="form-input" placeholder="e.g. 2500" min="0" step="50" required>
+    </div>
+
+    <!-- --POSTER / IMAGE SECTION-- -->
+    <div class="form-group">
+      <label class="form-label">Service Poster / Image</label>
+      <div class="poster-toggle-row">
+        <button type="button" class="poster-mode-btn poster-btn-active" id="poster-btn-url" onclick="switchPosterMode('url')">
+          <i class='bx bx-link'></i> URL Link
+        </button>
+        <button type="button" class="poster-mode-btn" id="poster-btn-upload" onclick="switchPosterMode('upload')">
+          <i class='bx bx-upload'></i> Upload File
+        </button>
+      </div>
+
+      <div id="poster-url-wrap">
+        <input type="url" id="service-form-imgurl" class="form-input" placeholder="https://example.com/image.jpg">
+      </div>
+
+      <div id="poster-upload-wrap" class="hidden">
+        <input type="file" id="service-form-imgfile" class="file-upload-input" accept="image/*">
+      </div>
+
+      <div id="service-img-preview-box">
+        <img id="service-img-preview" alt="Service image preview">
+        <div id="service-img-placeholder">
+          <i class='bx bx-image-add'></i>
+          <span>Image preview will appear here</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label" for="service-form-desc">Description</label>
+      <textarea id="service-form-desc" class="form-textarea" placeholder="Describe this tailoring service…"></textarea>
+    </div>
+    
+    <button class="btn btn-primary btn-full" onclick="submitServiceForm()"><i class='bx bx-save'></i> Save Service</button>
+  </div>
+</div>
+
+<!-- --MEASUREMENTS VIEW MODAL-- -->
+<div class="modal-overlay" id="measurements-modal" role="dialog" aria-modal="true">
+  <div class="modal-sheet" style="position:relative;">
+    <div class="modal-drag-bar"></div>
+    <button class="modal-close" onclick="closeModal('measurements-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
+    <h2 class="modal-title"><i class='bx bx-ruler'></i> Measurements</h2>
+    <p style="font-size:0.82rem;font-weight:600;color:var(--clr-primary);margin-bottom:14px;" id="measurements-modal-order"></p>
+    <div id="measurements-modal-content"></div>
+    <hr class="divider">
+    <div class="form-label">Design Notes</div>
+    <p id="measurements-modal-notes" style="font-size:0.85rem;color:var(--clr-text-secondary);line-height:1.5;"></p>
+  </div>
+</div>
+
+<!-- --QUOTATION UPDATE MODAL-- -->
+<div class="modal-overlay" id="quote-modal" role="dialog" aria-modal="true">
+  <div class="modal-sheet" style="position:relative;">
+    <div class="modal-drag-bar"></div>
+    <button class="modal-close" onclick="closeModal('quote-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
+    <h2 class="modal-title">Update Order</h2>
+    <p style="font-size:0.82rem;font-weight:600;color:var(--clr-primary);margin-bottom:18px;" id="quote-order-label"></p>
+    <input type="hidden" id="quote-order-id">
+    <div class="form-group">
+      <label class="form-label" for="quote-price-input">Quotation Price (₱)</label>
+      <input type="number" id="quote-price-input" class="form-input" placeholder="Enter price in PHP" min="0" step="50">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="quote-status-select">Update Status</label>
+      <select id="quote-status-select" class="form-select">
+        <option value="Pending Quote">Pending Quote</option>
+        <option value="Quoted">Quoted</option>
+        <option value="In Production">In Production</option>
+        <option value="Completed">Completed</option>
+      </select>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="submitQuoteUpdate()"><i class='bx bx-check'></i> Save Changes</button>
+  </div>
+</div>
+
+<!-- --BOTTOM NAVIGATION (MOBILE)-- -->
+<nav class="bottom-nav">
+  <a href="/index.html" class="nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    <span>Home</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    <span>Catalog</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
+    <i class='bx bx-plus'></i>
+  </a>
+  <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    <span>Orders</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item active admin-only-nav" data-page="admin">
+    <i class='bx bx-cog'></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- --TOAST CONTAINER-- -->
+<div id="toast-container"></div>
+
+<!-- --SCRIPTS-- -->
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/services.js"></script>
+<script src="/js/orders.js"></script>
+<script>
+  // --ADMIN DASHBOARD INIT--
+  document.addEventListener('DOMContentLoaded', async () => {
+    await renderAdminAnalytics();
+    await renderAnalyticsRecentOrders();
+  });
+
+  async function renderAnalyticsRecentOrders() {
+    const container = document.getElementById('analytics-recent-orders');
+    if (!container) return;
+
+    const orders = await fetchOrders(false);
+    const recent = orders.slice(0, 5);
+
+    if (!recent.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class='bx bx-clipboard'></i></div><p class="empty-state-title">No orders yet</p></div>`;
+      return;
+    }
+
+    container.innerHTML = recent.map(o => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--clr-border-light);">
+      <div>
+        <div style="font-size:0.88rem;font-weight:600;">${o.service_name}</div>
+        <div style="font-size:0.75rem;color:var(--clr-text-muted);">#${o.id} · ${o.customer_name}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        ${window.statusBadgeHTML(o.status)}
+        ${o.quotation_price ? `<span style="font-size:0.8rem;font-weight:700;color:var(--clr-primary);">${window.formatPHP(o.quotation_price)}</span>` : ''}
+      </div>
+    </div>`).join('');
+  }
+
+  // --ADMIN TAB SWITCHER--
+  function switchAdminTab(tab, btn) {
+    document.querySelectorAll('.tabs-row .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    document.getElementById('tab-analytics').classList.add('hidden');
+    document.getElementById('tab-services').classList.add('hidden');
+    document.getElementById('tab-orders').classList.add('hidden');
+    document.getElementById(`tab-${tab}`).classList.remove('hidden');
+
+    if (tab === 'services') renderAdminServicesTable('admin-services-container');
+    if (tab === 'orders') renderAdminOrders('admin-orders-container', 'All');
+    if (tab === 'analytics') { renderAdminAnalytics(); renderAnalyticsRecentOrders(); }
+  }
+
+  // --ADMIN ORDERS STATUS FILTER--
+  function filterAdminOrders(status, btn) {
+    document.querySelectorAll('.order-filter-row .filter-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    renderAdminOrders('admin-orders-container', status);
+  }
+</script>
+</body>
+</html>

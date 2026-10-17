@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sign in or create an account with 8 Saints Tailoring to order custom clothing and track your tailoring projects.">
+  <meta name="theme-color" content="#1A1C20">
+  <link rel="icon" href="/assets/images/logo.png" type="image/png">
+  <title>Sign In / Sign Up — 8 Saints Tailoring</title>
+  <!-- --BOXICONS CDN-- -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- --SUPABASE CDN-- -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* --AUTH SPECIFIC OVERRIDES-- */
+    body { background: none; }
+    .password-wrap { position: relative; }
+    .toggle-password { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--clr-text-muted); padding: 0; font-size: 1.25rem; display: flex; align-items: center; justify-content: center; }
+    .password-wrap .form-input { padding-right: 44px; }
+    .auth-error { color: var(--clr-danger); font-size: 0.82rem; margin-top: -8px; margin-bottom: 8px; font-weight: 500; }
+    .auth-success { color: var(--clr-success); font-size: 0.82rem; margin-top: -8px; margin-bottom: 8px; font-weight: 500; }
+    .divider-or { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--clr-text-muted); font-size: 0.8rem; }
+    .divider-or::before, .divider-or::after { content: ''; flex: 1; height: 1px; background: var(--clr-border); }
+    .demo-hint { background: rgba(201,168,76,0.12); border: 1px solid var(--clr-gold-light); border-radius: var(--radius-md); padding: 10px 14px; font-size: 0.78rem; color: var(--clr-gold-dark); margin-top: 16px; line-height: 1.5; }
+    .cf-turnstile-placeholder { background: var(--clr-bg); border: 1.5px dashed var(--clr-border); border-radius: var(--radius-md); padding: 16px; text-align: center; font-size: 0.78rem; color: var(--clr-text-muted); margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- --AUTH FULL PAGE LAYOUT-- -->
+<div class="auth-page">
+  <div class="auth-card">
+
+    <!-- --LOGO & BRAND-- -->
+    <div class="auth-logo-wrap">
+      <img src="/assets/images/logo.png" alt="8 Saints Tailoring" class="auth-logo">
+      <div class="auth-brand-name">8 Saints Tailoring</div>
+      <div class="auth-brand-sub">Premium Custom Clothing Marketplace</div>
+    </div>
+
+    <!-- --PAGE TITLE-- -->
+    <div style="text-align:center;margin-bottom:20px;">
+      <h1 id="auth-title" style="font-size:1.25rem;font-weight:700;color:var(--clr-text-primary);">Welcome Back</h1>
+      <p id="auth-subtitle" style="font-size:0.82rem;color:var(--clr-text-muted);margin-top:3px;">Sign in to your account</p>
+    </div>
+
+    <!-- --AUTH FORM TOGGLE-- -->
+    <div class="auth-toggle">
+      <button id="toggle-signin" class="auth-toggle-btn active">Sign In</button>
+      <button id="toggle-signup" class="auth-toggle-btn">Sign Up</button>
+    </div>
+
+    <!-- --SIGN IN PANEL-- -->
+    <div id="panel-signin">
+      <form id="form-signin" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="signin-email">Email Address</label>
+          <input type="email" id="signin-email" class="form-input" placeholder="you@email.com" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signin-password">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="signin-password" class="form-input" placeholder="Enter your password" autocomplete="current-password" required>
+            <button type="button" class="toggle-password" data-target="signin-password" aria-label="Toggle password">
+              <i class='bx bx-show'></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- --CLOUDFLARE TURNSTILE-- -->
+        <div class="cf-turnstile-placeholder" id="signin-turnstile-wrap">
+          <div class="cf-turnstile" data-sitekey="" data-theme="light"></div>
+          <span><i class='bx bx-shield-quarter'></i> Security verification will appear here</span>
+        </div>
+
+        <p id="signin-error" class="auth-error hidden"></p>
+        <p id="signin-success" class="auth-success hidden"></p>
+
+        <button type="submit" id="signin-submit-btn" class="btn btn-primary btn-full">Sign In</button>
+      </form>
+    </div>
+
+    <!-- --SIGN UP PANEL-- -->
+    <div id="panel-signup" class="hidden">
+      <form id="form-signup" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="signup-name">Full Name</label>
+          <input type="text" id="signup-name" class="form-input" placeholder="Your full name" autocomplete="name" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-email">Email Address</label>
+          <input type="email" id="signup-email" class="form-input" placeholder="you@email.com" autocomplete="email" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-password">Password</label>
+          <div class="password-wrap">
+            <input type="password" id="signup-password" class="form-input" placeholder="At least 8 characters" autocomplete="new-password" required>
+            <button type="button" class="toggle-password" data-target="signup-password" aria-label="Toggle password">
+              <i class='bx bx-show'></i>
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="signup-confirm">Confirm Password</label>
+          <div class="password-wrap">
+            <input type="password" id="signup-confirm" class="form-input" placeholder="Re-enter password" autocomplete="new-password" required>
+            <button type="button" class="toggle-password" data-target="signup-confirm" aria-label="Toggle confirm password">
+              <i class='bx bx-show'></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- --CLOUDFLARE TURNSTILE-- -->
+        <div class="cf-turnstile-placeholder" id="signup-turnstile-wrap">
+          <div class="cf-turnstile" data-sitekey="" data-theme="light"></div>
+          <span><i class='bx bx-shield-quarter'></i> Security verification will appear here</span>
+        </div>
+
+        <p id="signup-error" class="auth-error hidden"></p>
+        <p id="signup-success" class="auth-success hidden"></p>
+
+        <button type="submit" id="signup-submit-btn" class="btn btn-primary btn-full">Create Account</button>
+      </form>
+      <p style="text-align:center;font-size:0.75rem;color:var(--clr-text-muted);margin-top:14px;">By signing up, you agree to our Terms of Service and Privacy Policy.</p>
+    </div>
+
+    <!-- --BACK TO HOME-- -->
+    <div style="text-align:center;margin-top:22px;">
+      <a href="/index.html" style="font-size:0.8rem;color:var(--clr-text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+        <i class='bx bx-arrow-back'></i> Back to Home
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<!-- --TOAST CONTAINER-- -->
+<div id="toast-container"></div>
+
+<!-- --SCRIPTS-- -->
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Track your custom tailoring orders, view your quotations, and manage your size profile with 8 Saints Tailoring.">
+  <meta name="theme-color" content="#1A1C20">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/images/logo.png" type="image/png">
+  <title>My Orders — 8 Saints Tailoring</title>
+  <!-- --BOXICONS CDN-- -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- --SUPABASE CDN-- -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* --CUSTOMER ORDERS PAGE STYLES-- */
+    .size-profile-list { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+    .size-profile-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid var(--clr-border-light); }
+    .size-profile-row:last-child { border-bottom: none; }
+    .size-profile-label { color: var(--clr-text-secondary); text-transform: capitalize; }
+    .size-profile-val { font-weight: 700; color: var(--clr-primary); }
+  </style>
+</head>
+<body>
+
+<!-- --STICKY TOP HEADER-- -->
+<header class="app-header">
+  <div class="header-left">
+    <a href="/index.html" class="header-icon-btn" aria-label="Back to Home">
+      <i class='bx bx-arrow-back'></i>
+    </a>
+  </div>
+  <a href="/index.html" class="header-logo-wrap">
+    <img src="/assets/images/logo.png" alt="8 Saints Tailoring Logo" class="header-logo-img">
+    <span class="header-logo-text">My Orders</span>
+  </a>
+  <div class="header-right">
+    <button class="header-icon-btn" id="darkmode-btn" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">
+      <i class='bx bx-moon'></i>
+    </button>
+    <a href="/pages/auth.html" class="header-auth-btn" id="header-auth-btn">Login</a>
+    <button class="header-icon-btn" id="notif-btn" aria-label="Notifications">
+      <i class='bx bx-bell'></i>
+    </button>
+  </div>
+</header>
+
+<!-- --OFFLINE BANNER-- -->
+<div id="offline-banner" class="hidden"><i class='bx bx-wifi-off'></i> Offline Mode — Showing Cached Data</div>
+
+<!-- --SIDEBAR (PC ONLY)-- -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">8 Saints</div>
+    <div class="sidebar-brand-sub">Tailoring Marketplace</div>
+  </div>
+  <a href="/index.html" class="sidebar-nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    Home
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    Catalog
+  </a>
+  <a href="/pages/customer-orders.html" class="sidebar-nav-item active" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    My Orders
+  </a>
+  <a href="/pages/admin-dashboard.html" class="sidebar-nav-item admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    Admin
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+</aside>
+
+<!-- --MAIN PAGE WRAPPER-- -->
+<main class="page-wrapper">
+
+  <!-- --GREETING PILL BAR-- -->
+  <div class="greeting-pill">
+    <span class="greeting-name">Welcome, <span id="greeting-name">Guest</span>!</span>
+    <span class="greeting-date" id="greeting-date">—</span>
+  </div>
+
+  <!-- --BENTO WIDGETS (CUSTOMER DASHBOARD)-- -->
+  <div class="bento-row">
+    <!-- Left Widget: Active Order Tracker -->
+    <div class="bento-widget accent">
+      <div class="bento-widget-icon"><i class='bx bx-package'></i></div>
+      <div class="bento-widget-title">Active Orders</div>
+      <div class="bento-widget-value" id="bento-active-count">—</div>
+      <div class="bento-widget-sub">In progress right now</div>
+    </div>
+    <!-- Right Widget: My Size Profile -->
+    <div class="bento-widget">
+      <div class="bento-widget-icon"><i class='bx bx-ruler'></i></div>
+      <div class="bento-widget-title">My Size Profile</div>
+      <div class="size-profile-list" id="size-profile-list">
+        <p class="bento-widget-sub">Loading…</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- --PAGE HEADING-- -->
+  <div class="section-label">
+    <h1 style="font-size:1.05rem;font-weight:700;">My Order History</h1>
+    <a href="/pages/catalog.html" class="btn btn-sm btn-primary"><i class='bx bx-plus'></i> New Order</a>
+  </div>
+
+  <!-- --ORDERS STATUS FILTER TABS-- -->
+  <div class="tabs-row" style="margin-bottom:16px;">
+    <button class="tab-btn active" onclick="filterOrders('All', this)">All</button>
+    <button class="tab-btn" onclick="filterOrders('Pending Quote', this)">Pending</button>
+    <button class="tab-btn" onclick="filterOrders('Quoted', this)">Quoted</button>
+    <button class="tab-btn" onclick="filterOrders('In Production', this)">Active</button>
+    <button class="tab-btn" onclick="filterOrders('Completed', this)">Done</button>
+  </div>
+
+  <!-- --ORDERS LIST-- -->
+  <div id="orders-list">
+    <div class="spinner"></div>
+  </div>
+
+</main>
+
+<!-- --BOTTOM NAVIGATION (MOBILE)-- -->
+<nav class="bottom-nav">
+  <a href="/index.html" class="nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    <span>Home</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-item" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    <span>Catalog</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
+    <i class='bx bx-plus'></i>
+  </a>
+  <a href="/pages/customer-orders.html" class="nav-item active" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    <span>Orders</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- --TOAST CONTAINER-- -->
+<div id="toast-container"></div>
+
+<!-- --SCRIPTS-- -->
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/services.js"></script>
+<script src="/js/orders.js"></script>
+<script>
+  // --CUSTOMER ORDERS PAGE INIT--
+  document.addEventListener('DOMContentLoaded', async () => {
+    await renderCustomerOrders('orders-list');
+    await renderActiveOrderCount('bento-active-count');
+    await renderSizeSummary('size-profile-list');
+  });
+
+  function filterOrders(status, btn) {
+    document.querySelectorAll('.tabs-row .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const container = document.getElementById('orders-list');
+    const allCards = container.querySelectorAll('.order-card');
+
+    if (status === 'All') {
+      allCards.forEach(c => c.style.display = '');
+      return;
+    }
+
+    allCards.forEach(c => {
+      const badge = c.querySelector('.status-badge');
+      const cardStatus = badge?.textContent?.trim() || '';
+      c.style.display = cardStatus === status ? '' : 'none';
+    });
+  }
+</script>
+</body>
+</html>

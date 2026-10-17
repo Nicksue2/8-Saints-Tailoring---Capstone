@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Browse 8 Saints Tailoring's full catalog of custom tailoring services — Barong Tagalog, suits, gowns, uniforms, and alterations.">
+  <meta name="theme-color" content="#1A1C20">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/assets/images/logo.png" type="image/png">
+  <title>Service Catalog — 8 Saints Tailoring</title>
+  <!-- --BOXICONS CDN-- -->
+  <link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+  <!-- --SUPABASE CDN-- -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    /* --CATALOG PAGE EXTRA STYLES-- */
+    .modal-service-img-wrap { position: relative; width: 100%; height: 180px; border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 16px; }
+    .modal-service-img-wrap img { width: 100%; height: 100%; object-fit: cover; }
+    .modal-service-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .modal-section-label { font-size: 0.78rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--clr-text-secondary); margin-bottom: 8px; margin-top: 16px; }
+  </style>
+</head>
+<body>
+
+<!-- --STICKY TOP HEADER-- -->
+<header class="app-header">
+  <div class="header-left">
+    <a href="/index.html" class="header-icon-btn" aria-label="Back to Home">
+      <i class='bx bx-arrow-back'></i>
+    </a>
+  </div>
+  <a href="/index.html" class="header-logo-wrap">
+    <img src="/assets/images/logo.png" alt="8 Saints Tailoring Logo" class="header-logo-img">
+    <span class="header-logo-text">Service Catalog</span>
+  </a>
+  <div class="header-right">
+    <button class="header-icon-btn" id="darkmode-btn" aria-label="Toggle Dark Mode" title="Toggle Dark Mode">
+      <i class='bx bx-moon'></i>
+    </button>
+    <a href="/pages/auth.html" class="header-auth-btn" id="header-auth-btn">Login</a>
+    <button class="header-icon-btn" id="notif-btn" aria-label="Notifications">
+      <i class='bx bx-bell'></i>
+    </button>
+  </div>
+</header>
+
+<!-- --OFFLINE BANNER-- -->
+<div id="offline-banner" class="hidden"><i class='bx bx-wifi-off'></i> Offline Mode — Showing Cached Data</div>
+
+<!-- --SIDEBAR (PC ONLY)-- -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="sidebar-brand-name">8 Saints</div>
+    <div class="sidebar-brand-sub">Tailoring Marketplace</div>
+  </div>
+  <a href="/index.html" class="sidebar-nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    Home
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-nav-item active" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    Catalog
+  </a>
+  <a href="/pages/customer-orders.html" class="sidebar-nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    My Orders
+  </a>
+  <a href="/pages/admin-dashboard.html" class="sidebar-nav-item admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    Admin
+  </a>
+  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+</aside>
+
+<!-- --MAIN PAGE WRAPPER-- -->
+<main class="page-wrapper">
+
+  <!-- --GREETING PILL BAR-- -->
+  <div class="greeting-pill">
+    <span class="greeting-name">Welcome, <span id="greeting-name">Guest</span>!</span>
+    <span class="greeting-date" id="greeting-date">—</span>
+  </div>
+
+  <!-- --PAGE HEADING-- -->
+  <h1 style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:var(--clr-text-primary);margin-bottom:6px;">Our Services</h1>
+  <p style="font-size:0.85rem;color:var(--clr-text-secondary);margin-bottom:18px;">Tap any service to begin your custom order.</p>
+
+  <!-- --SEARCH BAR (WITH id="searchInput")-- -->
+  <div class="search-bar-wrap">
+    <i class='bx bx-search' style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--clr-text-muted);font-size:1.15rem;"></i>
+    <input type="search" id="searchInput" class="search-bar" placeholder="Search services…" aria-label="Search services" style="padding-left:40px;">
+  </div>
+
+  <!-- --FILTER PILLS-- -->
+  <div class="filter-pills">
+    <button class="filter-pill active" data-filter="All">All</button>
+    <button class="filter-pill" data-filter="Formal Wear">Formal Wear</button>
+    <button class="filter-pill" data-filter="Ladies Wear">Ladies Wear</button>
+    <button class="filter-pill" data-filter="Uniforms">Uniforms</button>
+    <button class="filter-pill" data-filter="Alterations">Alterations</button>
+    <button class="filter-pill" data-filter="Wedding">Wedding</button>
+  </div>
+
+  <!-- --CATALOG GRID (EMPTY ON LOAD, POPULATED DYNAMICALLY VIA JS)-- -->
+  <div class="catalog-grid catalog-full" id="catalog-grid"></div>
+
+</main>
+
+<!-- --CUSTOMIZE NOW MODAL-- -->
+<div class="modal-overlay" id="customize-modal" role="dialog" aria-modal="true" aria-labelledby="customize-modal-title">
+  <div class="modal-sheet" style="position:relative;">
+    <div class="modal-drag-bar"></div>
+    <button class="modal-close" onclick="closeModal('customize-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
+
+    <!-- --SERVICE SUMMARY-- -->
+    <div class="modal-service-img-wrap">
+      <img id="modal-service-img" src="/assets/images/hero.png" alt="Service Image">
+    </div>
+    <div class="modal-service-meta">
+      <span class="service-card-badge" id="modal-service-category">Category</span>
+      <span style="font-size:0.88rem;font-weight:700;color:var(--clr-gold-dark);" id="modal-service-price">From ₱0</span>
+    </div>
+    <h2 class="modal-title" id="customize-modal-title"><span id="modal-service-name">Service Name</span></h2>
+    <p style="font-size:0.82rem;color:var(--clr-text-secondary);margin-bottom:16px;" id="modal-service-desc"></p>
+
+    <hr class="divider">
+
+    <!-- --ORDER FORM-- -->
+    <form id="customize-form" onsubmit="submitOrder(event)">
+      <input type="hidden" id="customize-service-id">
+
+      <!-- --SIZE SELECTION-- -->
+      <div class="modal-section-label">Select Your Size</div>
+      <div class="size-selector" id="std-size-section">
+        <div class="size-chip" data-size="XS">XS</div>
+        <div class="size-chip selected" data-size="S">S</div>
+        <div class="size-chip" data-size="M">M</div>
+        <div class="size-chip" data-size="L">L</div>
+        <div class="size-chip" data-size="XL">XL</div>
+        <div class="size-chip" data-size="XXL">XXL</div>
+        <div class="size-chip" data-size="CUSTOM" style="background:var(--clr-bg);border-style:dashed;color:var(--clr-primary);"><i class='bx bx-ruler'></i> Custom</div>
+      </div>
+
+      <!-- --CUSTOM MEASUREMENTS-- -->
+      <div id="custom-measurements-section" class="hidden">
+        <div class="modal-section-label" style="margin-top:16px;">Custom Tape Measurements (in inches)</div>
+        <div class="measurements-grid">
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-chest">Chest</label>
+            <input type="number" id="m-chest" class="form-input" placeholder='e.g. 38"' min="20" max="70" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-waist">Waist</label>
+            <input type="number" id="m-waist" class="form-input" placeholder='e.g. 32"' min="20" max="70" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-shoulder">Shoulder</label>
+            <input type="number" id="m-shoulder" class="form-input" placeholder='e.g. 17"' min="10" max="30" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-sleeve">Sleeve</label>
+            <input type="number" id="m-sleeve" class="form-input" placeholder='e.g. 25"' min="10" max="40" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-length">Length</label>
+            <input type="number" id="m-length" class="form-input" placeholder='e.g. 28"' min="15" max="60" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-hip">Hip</label>
+            <input type="number" id="m-hip" class="form-input" placeholder='e.g. 40"' min="20" max="70" step="0.5">
+          </div>
+          <div class="form-group" style="margin-bottom:10px;">
+            <label class="form-label" for="m-inseam">Inseam</label>
+            <input type="number" id="m-inseam" class="form-input" placeholder='e.g. 31"' min="15" max="45" step="0.5">
+          </div>
+        </div>
+      </div>
+
+      <!-- --DESIGN NOTES-- -->
+      <div class="form-group" style="margin-top:14px;">
+        <label class="form-label" for="order-design-notes">Design Notes & Preferences</label>
+        <textarea id="order-design-notes" class="form-textarea" placeholder="Fabric preference, color, style details, occasion, special requests…"></textarea>
+      </div>
+
+      <!-- --SUBMIT-- -->
+      <button type="submit" class="btn btn-primary btn-full">
+        <i class='bx bx-cut'></i> Submit Custom Order
+      </button>
+      <p style="font-size:0.73rem;color:var(--clr-text-muted);text-align:center;margin-top:10px;">Our tailor will review and send you a quotation within 1–2 business days.</p>
+    </form>
+  </div>
+</div>
+
+<!-- --BOTTOM NAVIGATION (MOBILE)-- -->
+<nav class="bottom-nav">
+  <a href="/index.html" class="nav-item" data-page="index">
+    <i class='bx bx-home-alt'></i>
+    <span>Home</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-item active" data-page="catalog">
+    <i class='bx bx-grid-alt'></i>
+    <span>Catalog</span>
+  </a>
+  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
+    <i class='bx bx-plus'></i>
+  </a>
+  <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
+    <i class='bx bx-clipboard'></i>
+    <span>Orders</span>
+  </a>
+  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-cog'></i>
+    <span>Admin</span>
+  </a>
+</nav>
+
+<!-- --TOAST CONTAINER-- -->
+<div id="toast-container"></div>
+
+<!-- --SCRIPTS-- -->
+<script src="/js/config.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/services.js"></script>
+<script src="/js/orders.js"></script>
+<script>
+  // --CATALOG PAGE INIT--
+  document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('q');
+    renderCatalogFull('catalog-grid', 'All');
+    if (initialQuery) {
+      const searchInput = document.getElementById('searchInput');
+      if (searchInput) {
+        searchInput.value = initialQuery;
+        searchServices(initialQuery, 'catalog-grid');
+      }
+    }
+  });
+</script>
+</body>
+</html>
