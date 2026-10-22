@@ -241,21 +241,104 @@ async function renderSizeSummary(containerId) {
     return;
   }
 
-  const orders = await fetchOrders(true);
-  const withMeasurements = orders.find(o => o.measurements && Object.keys(o.measurements).length > 0);
+  let measurements = null;
+  let preferredFit = '';
 
-  if (!withMeasurements) {
-    container.innerHTML = `<p class="empty-state-sub">No measurements saved yet.</p>`;
+  // 1. Check local storage cache (saved from profile page)
+  try {
+    const raw = localStorage.getItem('8st_saved_measurements');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+        measurements = parsed;
+      }
+    }
+    preferredFit = localStorage.getItem('8st_preferred_fit') || '';
+  } catch (e) {}
+
+  // 2. Fetch from profiles table (Supabase)
+  const client = window.__8ST?.getClient?.();
+  if (client) {
+    try {
+      const { data: prof } = await client
+        .from('profiles')
+        .select('measurements, preferred_fit')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (prof) {
+        if (prof.preferred_fit) preferredFit = prof.preferred_fit;
+        if (prof.measurements && typeof prof.measurements === 'object' && Object.keys(prof.measurements).length > 0) {
+          measurements = prof.measurements;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Fallback: check recent orders with measurements
+  if (!measurements || Object.keys(measurements).length === 0) {
+    try {
+      const orders = await fetchOrders(true);
+      const withMeasurements = orders.find(o => o.measurements && Object.keys(o.measurements).length > 0);
+      if (withMeasurements) {
+        measurements = withMeasurements.measurements;
+      }
+    } catch (e) {}
+  }
+
+  // If still empty, display actionable prompt
+  if (!measurements || Object.keys(measurements).length === 0) {
+    container.innerHTML = `
+      <div style="font-size:0.82rem;color:var(--clr-text-secondary);padding:4px 0;">
+        No measurements saved yet.
+      </div>
+      <a href="/pages/profile.html" style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:0.75rem;font-weight:700;color:var(--accent-color);">
+        <i class='bx bx-plus-circle'></i> Add Measurements →
+      </a>`;
     return;
   }
 
-  const m = withMeasurements.measurements;
-  container.innerHTML = Object.entries(m).map(([k, v]) =>
-    `<div style="display:flex;justify-content:space-between;font-size:0.8rem;padding:4px 0;border-bottom:1px solid var(--clr-border-light);">
-      <span style="color:var(--clr-text-secondary);text-transform:capitalize;">${k}</span>
-      <span style="font-weight:600;">${v}"</span>
-    </div>`
-  ).join('');
+  // Format and render measurements
+  const displayFields = ['chest', 'waist', 'shoulder', 'sleeve', 'length', 'hip', 'inseam'];
+  const items = [];
+
+  if (preferredFit) {
+    items.push(`
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;padding:3px 0;border-bottom:1px solid var(--clr-border-light);">
+        <span style="color:var(--clr-text-secondary);">Fit Style</span>
+        <span style="font-weight:700;color:var(--accent-color);">${preferredFit}</span>
+      </div>
+    `);
+  }
+
+  displayFields.forEach(f => {
+    if (measurements[f] !== undefined && measurements[f] !== '') {
+      items.push(`
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;padding:3px 0;border-bottom:1px solid var(--clr-border-light);">
+          <span style="color:var(--clr-text-secondary);text-transform:capitalize;">${f}</span>
+          <span style="font-weight:600;color:var(--text-primary);">${measurements[f]}"</span>
+        </div>
+      `);
+    }
+  });
+
+  if (items.length === 0 || (items.length === 1 && preferredFit)) {
+    Object.entries(measurements).forEach(([k, v]) => {
+      if (k !== 'notes' && typeof v !== 'object') {
+        items.push(`
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.78rem;padding:3px 0;border-bottom:1px solid var(--clr-border-light);">
+            <span style="color:var(--clr-text-secondary);text-transform:capitalize;">${k}</span>
+            <span style="font-weight:600;color:var(--text-primary);">${v}"</span>
+          </div>
+        `);
+      }
+    });
+  }
+
+  const preview = items.slice(0, 4).join('');
+  const remaining = items.length > 4 ? `<div style="font-size:0.72rem;color:var(--accent-color);text-align:right;margin-top:4px;">+${items.length - 4} more</div>` : '';
+
+  container.innerHTML = preview + remaining;
 }
 
 window.renderSizeSummary = renderSizeSummary;
@@ -413,6 +496,7 @@ async function submitQuoteUpdate() {
           };
           const title = statusTitles[status] || 'Order Status Updated';
           const msg = `Your order #${String(order.id).slice(0, 8)} status changed to: ${status}.`;
+          
           client.from('notifications').insert([{
             user_id: order.user_id,
             order_id: order.id,
@@ -420,6 +504,18 @@ async function submitQuoteUpdate() {
             message: msg,
             is_read: false
           }]).catch(e => console.warn('[8ST] Notification insert fallback note:', e));
+
+          const currentUserId = window.__currentUser?.id || window.__8ST?.getSessionUser?.()?.id;
+          if (currentUserId && String(currentUserId) === String(order.user_id)) {
+            window.handleIncomingNotification?.({
+              id: 'local-' + Date.now(),
+              title: title,
+              message: msg,
+              order_id: order.id,
+              is_read: false,
+              created_at: new Date().toISOString()
+            });
+          }
         }
       } catch (ne) {
         console.warn('[8ST] Notification dispatch note:', ne);

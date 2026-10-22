@@ -78,11 +78,15 @@
     <i class='bx bx-clipboard'></i>
     My Orders
   </a>
+  <a href="/pages/profile.html" class="sidebar-nav-item" data-page="profile">
+    <i class='bx bx-user'></i>
+    Profile
+  </a>
   <a href="/pages/admin-dashboard.html" class="sidebar-nav-item active admin-only-nav" data-page="admin">
-    <i class='bx bx-cog'></i>
+    <i class='bx bx-shield-quarter'></i>
     Admin
   </a>
-  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+
 </aside>
 
 <!-- --MAIN PAGE WRAPPER-- -->
@@ -104,6 +108,9 @@
     </button>
     <button class="tab-btn" id="tab-orders-btn" onclick="switchAdminTab('orders', this)">
       <i class='bx bx-list-ul'></i> Orders
+    </button>
+    <button class="tab-btn" id="tab-users-btn" onclick="switchAdminTab('users', this)">
+      <i class='bx bx-group'></i> Users
     </button>
   </div>
 
@@ -173,7 +180,60 @@
     </div>
   </div>
 
+
+  <!-- --USER MANAGEMENT TAB-- -->
+  <div id="tab-users" class="admin-section hidden">
+    <div class="admin-panel-header">
+      <h2 class="admin-panel-title">User Management</h2>
+      <span style="font-size:0.75rem;color:var(--clr-text-muted);">Edit customer profiles and adjust roles</span>
+    </div>
+    <!-- Search -->
+    <div class="search-bar-wrap" style="margin-bottom:14px;">
+      <i class='bx bx-search' style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--clr-text-muted);font-size:1.1rem;"></i>
+      <input type="search" id="user-search-input" class="search-bar" placeholder="Search users by name or email…" oninput="filterUsersList(this.value)" style="padding-left:40px;">
+    </div>
+    <div id="admin-users-container">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
 </main>
+
+<!-- --USER EDIT MODAL-- -->
+<div class="modal-overlay" id="user-edit-modal" role="dialog" aria-modal="true">
+  <div class="modal-sheet" style="position:relative;">
+    <div class="modal-drag-bar"></div>
+    <button class="modal-close" onclick="closeModal('user-edit-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
+    <h2 class="modal-title"><i class='bx bx-user-circle' style="color:var(--clr-gold);"></i> Edit User</h2>
+    <input type="hidden" id="user-edit-id">
+
+    <div class="form-group">
+      <label class="form-label" for="user-edit-name">Full Name</label>
+      <input type="text" id="user-edit-name" class="form-input" placeholder="Full name">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="user-edit-phone">Phone Number</label>
+      <input type="tel" id="user-edit-phone" class="form-input" placeholder="e.g. 09171234567">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="user-edit-role">Account Role</label>
+      <select id="user-edit-role" class="form-select">
+        <option value="customer">Customer</option>
+        <option value="admin">Admin</option>
+      </select>
+    </div>
+
+    <div style="background:rgba(197,160,89,0.08);border:1px solid rgba(197,160,89,0.2);border-radius:var(--radius-md);padding:10px 14px;margin-bottom:16px;">
+      <div style="font-size:0.75rem;color:var(--clr-text-secondary);font-weight:600;margin-bottom:4px;"><i class='bx bx-info-circle'></i> Account Email</div>
+      <div id="user-edit-email-display" style="font-size:0.88rem;color:var(--clr-text-primary);font-weight:600;">—</div>
+      <div style="font-size:0.72rem;color:var(--clr-text-muted);margin-top:2px;">Email cannot be changed here — user must update it in their account settings.</div>
+    </div>
+
+    <button class="btn btn-primary btn-full" onclick="submitUserEdit()"><i class='bx bx-save'></i> Save Changes</button>
+  </div>
+</div>
 
 <!-- --SERVICE CRUD MODAL (ADD / EDIT SERVICE)-- -->
 <div class="modal-overlay" id="service-modal" role="dialog" aria-modal="true" aria-labelledby="service-form-title">
@@ -253,7 +313,7 @@
     <div class="modal-drag-bar"></div>
     <button class="modal-close" onclick="closeModal('measurements-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
     <h2 class="modal-title"><i class='bx bx-ruler'></i> Measurements</h2>
-    <p style="font-size:0.82rem;font-weight:600;color:var(--clr-primary);margin-bottom:14px;" id="measurements-modal-order"></p>
+    <p style="font-size:0.82rem;font-weight:600;color:var(--accent-color);margin-bottom:14px;" id="measurements-modal-order"></p>
     <div id="measurements-modal-content"></div>
     <hr class="divider">
     <div class="form-label">Design Notes</div>
@@ -267,7 +327,7 @@
     <div class="modal-drag-bar"></div>
     <button class="modal-close" onclick="closeModal('quote-modal')" aria-label="Close"><i class='bx bx-x'></i></button>
     <h2 class="modal-title">Update Order</h2>
-    <p style="font-size:0.82rem;font-weight:600;color:var(--clr-primary);margin-bottom:18px;" id="quote-order-label"></p>
+    <p style="font-size:0.82rem;font-weight:600;color:var(--accent-color);margin-bottom:18px;" id="quote-order-label"></p>
     <input type="hidden" id="quote-order-id">
     <div class="form-group">
       <label class="form-label" for="quote-price-input">Quotation Price (₱)</label>
@@ -291,7 +351,7 @@
 </div>
 
 <!-- --BOTTOM NAVIGATION (MOBILE)-- -->
-<nav class="bottom-nav">
+<nav class="bottom-nav has-admin">
   <a href="/index.html" class="nav-item" data-page="index">
     <i class='bx bx-home-alt'></i>
     <span>Home</span>
@@ -300,20 +360,17 @@
     <i class='bx bx-grid-alt'></i>
     <span>Catalog</span>
   </a>
-  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
-    <i class='bx bx-plus'></i>
+  <a href="/pages/admin-dashboard.html" class="nav-item nav-admin-btn active admin-only-nav" data-page="admin">
+    <i class='bx bx-shield-quarter'></i>
+    <span>ADMIN</span>
   </a>
   <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/profile.html" class="nav-item customer-only-nav hidden" data-page="profile" style="display:none;">
+  <a href="/pages/profile.html" class="nav-item" data-page="profile">
     <i class='bx bx-user'></i>
     <span>Profile</span>
-  </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item active admin-only-nav" data-page="admin">
-    <i class='bx bx-cog'></i>
-    <span>Admin</span>
   </a>
 </nav>
 
@@ -362,14 +419,106 @@
     document.querySelectorAll('.tabs-row .tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
 
-    document.getElementById('tab-analytics').classList.add('hidden');
-    document.getElementById('tab-services').classList.add('hidden');
-    document.getElementById('tab-orders').classList.add('hidden');
+    ['analytics','services','orders','users'].forEach(t => {
+      const el = document.getElementById(`tab-${t}`);
+      if (el) el.classList.add('hidden');
+    });
     document.getElementById(`tab-${tab}`).classList.remove('hidden');
 
     if (tab === 'services') renderAdminServicesTable('admin-services-container');
     if (tab === 'orders') renderAdminOrders('admin-orders-container', 'All');
     if (tab === 'analytics') { renderAdminAnalytics(); renderAnalyticsRecentOrders(); }
+    if (tab === 'users') renderAdminUsers();
+  }
+
+  // --USER MANAGEMENT--
+  let _allUsers = [];
+
+  async function renderAdminUsers() {
+    const container = document.getElementById('admin-users-container');
+    if (!container) return;
+    container.innerHTML = '<div class="spinner"></div>';
+
+    try {
+      const { data, error } = await window.__8ST.getClient()
+        .from('profiles')
+        .select('id, full_name, phone, role')
+        .order('full_name', { ascending: true });
+
+      if (error) throw error;
+      _allUsers = data || [];
+      renderUserCards(_allUsers);
+    } catch (e) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class='bx bx-error'></i></div><p class="empty-state-title">Failed to load users</p><p class="empty-state-sub">${e.message}</p></div>`;
+    }
+  }
+
+  function filterUsersList(query) {
+    const q = (query || '').toLowerCase().trim();
+    const filtered = q ? _allUsers.filter(u =>
+      (u.full_name || '').toLowerCase().includes(q) ||
+      (u.id || '').toLowerCase().includes(q)
+    ) : _allUsers;
+    renderUserCards(filtered);
+  }
+
+  function renderUserCards(users) {
+    const container = document.getElementById('admin-users-container');
+    if (!users || !users.length) {
+      container.innerHTML = `<div class="empty-state"><div class="empty-state-icon"><i class='bx bx-user-x'></i></div><p class="empty-state-title">No users found</p></div>`;
+      return;
+    }
+    container.innerHTML = users.map(u => {
+      const roleColor = u.role === 'admin' ? 'var(--clr-gold)' : 'var(--clr-text-secondary)';
+      const roleBg = u.role === 'admin' ? 'rgba(197,160,89,0.12)' : 'var(--clr-bg)';
+      const initials = (u.full_name || 'U').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
+      return `
+      <div class="section-card" style="display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:10px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent-color),var(--accent-hover));color:#1A1C20;font-weight:800;font-size:1rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${initials}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--clr-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.full_name || 'Unnamed User'}</div>
+          <div style="font-size:0.75rem;color:var(--clr-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.phone || 'No phone on file'}</div>
+          <span style="display:inline-flex;align-items:center;gap:4px;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:${roleColor};background:${roleBg};padding:2px 8px;border-radius:var(--radius-full);margin-top:3px;">
+            <i class='bx ${u.role === 'admin' ? 'bx-shield' : 'bx-user'}'></i>${u.role || 'customer'}
+          </span>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="openUserEditModal(${JSON.stringify(u).replace(/"/g, '&quot;')})" style="flex-shrink:0;">
+          <i class='bx bx-edit'></i> Edit
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  async function openUserEditModal(user) {
+    // Try to fetch email from auth — not directly accessible in profiles, so show ID hint
+    document.getElementById('user-edit-id').value = user.id;
+    document.getElementById('user-edit-name').value = user.full_name || '';
+    document.getElementById('user-edit-phone').value = user.phone || '';
+    document.getElementById('user-edit-role').value = user.role || 'customer';
+    document.getElementById('user-edit-email-display').textContent = `User ID: ${user.id.slice(0,8)}…`;
+    openModal('user-edit-modal');
+  }
+
+  async function submitUserEdit() {
+    const id = document.getElementById('user-edit-id').value;
+    const full_name = document.getElementById('user-edit-name').value.trim();
+    const phone = document.getElementById('user-edit-phone').value.trim();
+    const role = document.getElementById('user-edit-role').value;
+
+    if (!full_name) { window.showToast && window.showToast('Name cannot be empty.', 'error'); return; }
+
+    const { error } = await window.__8ST.getClient()
+      .from('profiles')
+      .update({ full_name, phone, role })
+      .eq('id', id);
+
+    if (error) {
+      window.showToast && window.showToast('Failed to update user: ' + error.message, 'error');
+    } else {
+      window.showToast && window.showToast('User updated successfully!', 'success');
+      closeModal('user-edit-modal');
+      renderAdminUsers();
+    }
   }
 
   // --ADMIN ORDERS STATUS FILTER--

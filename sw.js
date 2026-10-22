@@ -1,5 +1,5 @@
 // --SERVICE WORKER: CACHE STRATEGY--
-const CACHE_NAME = '8saints-v4';
+const CACHE_NAME = '8saints-v7';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -118,3 +118,21 @@ async function networkFirst(request) {
     });
   }
 }
+
+// --NOTIFICATION CLICK HANDLER--
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const urlToOpen = event.notification.data?.url || '/pages/customer-orders.html';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url.includes('customer-orders') && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});

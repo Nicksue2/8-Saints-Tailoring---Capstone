@@ -65,11 +65,15 @@
     <i class='bx bx-clipboard'></i>
     My Orders
   </a>
+  <a href="/pages/profile.html" class="sidebar-nav-item" data-page="profile">
+    <i class='bx bx-user'></i>
+    Profile
+  </a>
   <a href="/pages/admin-dashboard.html" class="sidebar-nav-item admin-only-nav" data-page="admin" style="display:none;">
-    <i class='bx bx-cog'></i>
+    <i class='bx bx-shield-quarter'></i>
     Admin
   </a>
-  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+
 </aside>
 
 <!-- --MAIN PAGE WRAPPER-- -->
@@ -83,7 +87,7 @@
 
   <!-- --HERO CARD-- -->
   <div class="section-label">
-    <span style="display:inline-flex;align-items:center;gap:6px;background:var(--clr-primary);color:#fff;padding:5px 12px;border-radius:var(--radius-full);font-size:0.78rem;font-weight:600;">
+    <span style="display:inline-flex;align-items:center;gap:6px;background:var(--accent-color);color:#1A1C20;padding:5px 12px;border-radius:var(--radius-full);font-size:0.78rem;font-weight:700;">
       <i class='bx bx-cut'></i> FEATURED SERVICE
     </span>
   </div>
@@ -122,7 +126,7 @@
     <div class="bento-widget" onclick="window.location.href='/pages/profile.html'" style="cursor:pointer;">
       <div class="bento-widget-icon"><i class='bx bx-ruler'></i></div>
       <div class="bento-widget-title">My Size Profile</div>
-      <div class="bento-widget-value" style="font-size:1rem;font-weight:700;color:var(--clr-primary);">Manage →</div>
+      <div class="bento-widget-value" style="font-size:1rem;font-weight:700;color:var(--accent-color);">Manage →</div>
       <div class="bento-widget-sub">View & edit measurements</div>
     </div>
   </div>
@@ -134,19 +138,19 @@
   <div class="section-card">
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--clr-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0;">1</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent-color),var(--accent-hover));color:#1A1C20;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;flex-shrink:0;">1</div>
         <div><strong>Choose a Service</strong><br><small style="color:var(--clr-text-secondary);">Browse our catalog of tailoring services and select what you need.</small></div>
       </div>
       <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--clr-gold);color:var(--clr-primary-dark);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0;">2</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent-color),var(--accent-hover));color:#1A1C20;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;flex-shrink:0;">2</div>
         <div><strong>Submit Measurements</strong><br><small style="color:var(--clr-text-secondary);">Enter your standard size or custom tape measurements and design notes.</small></div>
       </div>
       <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--clr-primary-light);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0;">3</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,var(--accent-color),var(--accent-hover));color:#1A1C20;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;flex-shrink:0;">3</div>
         <div><strong>Receive Your Quote</strong><br><small style="color:var(--clr-text-secondary);">Our tailor reviews your order and sends a personalized price quote.</small></div>
       </div>
       <div style="display:flex;gap:14px;align-items:flex-start;">
-        <div style="width:36px;height:36px;border-radius:50%;background:var(--clr-success);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.9rem;flex-shrink:0;">4</div>
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--clr-success);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.9rem;flex-shrink:0;">4</div>
         <div><strong>Track Production</strong><br><small style="color:var(--clr-text-secondary);">Approve the quote and track your order's progress from your dashboard.</small></div>
       </div>
     </div>
@@ -252,20 +256,17 @@
     <i class='bx bx-grid-alt'></i>
     <span>Catalog</span>
   </a>
-  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
-    <i class='bx bx-plus'></i>
+  <a href="/pages/admin-dashboard.html" class="nav-item nav-admin-btn admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-shield-quarter'></i>
+    <span>ADMIN</span>
   </a>
   <a href="/pages/customer-orders.html" class="nav-item" data-page="orders">
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/profile.html" class="nav-item customer-only-nav" data-page="profile">
+  <a href="/pages/profile.html" class="nav-item" data-page="profile">
     <i class='bx bx-user'></i>
     <span>Profile</span>
-  </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
-    <i class='bx bx-cog'></i>
-    <span>Admin</span>
   </a>
 </nav>
 

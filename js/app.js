@@ -235,7 +235,7 @@ window.openQuickOrderModal = openQuickOrderModal;
 
 // --ADMIN NAV VISIBILITY & INJECTION--
 function setupAdminNavVisibility(isAdmin) {
-  // 1. Admin navigation items
+  // 1. Admin navigation items (show/hide admin items)
   const adminLinks = document.querySelectorAll('.admin-only-nav');
   adminLinks.forEach(el => {
     if (isAdmin) {
@@ -244,34 +244,41 @@ function setupAdminNavVisibility(isAdmin) {
       el.classList.remove('hidden');
     } else {
       el.style.setProperty('display', 'none', 'important');
+      el.classList.add('hidden');
     }
   });
 
-  // 2. Customer navigation items (e.g. 5th bottom-nav item: Profile)
-  const customerLinks = document.querySelectorAll('.customer-only-nav');
-  customerLinks.forEach(el => {
+  // 2. Mobile Bottom Nav columns adjustment (4 vs 5 columns)
+  const bottomNavs = document.querySelectorAll('.bottom-nav');
+  bottomNavs.forEach(nav => {
     if (isAdmin) {
-      el.style.setProperty('display', 'none', 'important');
+      nav.classList.add('has-admin');
     } else {
-      el.style.removeProperty('display');
-      el.style.setProperty('display', 'flex', 'important');
-      el.classList.remove('hidden');
+      nav.classList.remove('has-admin');
     }
   });
 
-  // 3. PC Sidebar: Ensure present and visible
+  // 3. PC Sidebar: Ensure Profile and Admin links are in place
   const sidebar = document.querySelector('.sidebar');
   if (sidebar) {
+    let profileLink = sidebar.querySelector('a[href="/pages/profile.html"]');
+    if (!profileLink) {
+      profileLink = document.createElement('a');
+      profileLink.href = '/pages/profile.html';
+      profileLink.className = 'sidebar-nav-item';
+      profileLink.setAttribute('data-page', 'profile');
+      profileLink.innerHTML = `<i class='bx bx-user'></i> Profile`;
+      sidebar.appendChild(profileLink);
+    }
+
     let adminLink = sidebar.querySelector('.admin-only-nav');
     if (!adminLink && isAdmin) {
       adminLink = document.createElement('a');
       adminLink.href = '/pages/admin-dashboard.html';
       adminLink.className = 'sidebar-nav-item admin-only-nav';
       adminLink.setAttribute('data-page', 'admin');
-      adminLink.innerHTML = `<i class='bx bx-cog'></i> Admin`;
-      const cta = sidebar.querySelector('.sidebar-cta');
-      if (cta) sidebar.insertBefore(adminLink, cta);
-      else sidebar.appendChild(adminLink);
+      adminLink.innerHTML = `<i class='bx bx-shield-quarter'></i> Admin`;
+      sidebar.appendChild(adminLink);
     }
     if (adminLink) {
       if (isAdmin) {
@@ -280,29 +287,7 @@ function setupAdminNavVisibility(isAdmin) {
         adminLink.classList.remove('hidden');
       } else {
         adminLink.style.setProperty('display', 'none', 'important');
-      }
-    }
-  }
-
-  // 4. Mobile Bottom Nav: Ensure present and visible
-  const bottomNav = document.querySelector('.bottom-nav');
-  if (bottomNav) {
-    let adminTab = bottomNav.querySelector('.admin-only-nav');
-    if (!adminTab && isAdmin) {
-      adminTab = document.createElement('a');
-      adminTab.href = '/pages/admin-dashboard.html';
-      adminTab.className = 'nav-item admin-only-nav';
-      adminTab.setAttribute('data-page', 'admin');
-      adminTab.innerHTML = `<i class='bx bx-cog'></i><span>Admin</span>`;
-      bottomNav.appendChild(adminTab);
-    }
-    if (adminTab) {
-      if (isAdmin) {
-        adminTab.style.removeProperty('display');
-        adminTab.style.setProperty('display', 'flex', 'important');
-        adminTab.classList.remove('hidden');
-      } else {
-        adminTab.style.setProperty('display', 'none', 'important');
+        adminLink.classList.add('hidden');
       }
     }
   }
@@ -449,15 +434,12 @@ function setupNotificationBell() {
     bellBtn.appendChild(badge);
   }
 
-  // Request Notification permission (optional/stretch for background notifications)
-  if ('Notification' in window && Notification.permission === 'default') {
-    bellBtn.addEventListener('mouseenter', () => {
-      Notification.requestPermission().catch(() => {});
-    }, { once: true });
-  }
-
+  // Request Notification permission on interaction or bell click
   bellBtn.addEventListener('click', (e) => {
     e.stopPropagation();
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(() => {});
+    }
     toggleNotificationDropdown();
   });
 
@@ -520,22 +502,38 @@ async function initUserNotifications(user) {
 }
 
 function handleIncomingNotification(notif) {
+  if (userNotifications.some(n => String(n.id) === String(notif.id))) return;
   userNotifications.unshift(notif);
   updateNotificationBadge();
   renderNotificationList();
 
   // Show in-app toast
-  showToast(`🔔 ${notif.title}: ${notif.message}`, 'info', 5000);
+  showToast(`🔔 ${notif.title}: ${notif.message}`, 'info', 6000);
 
-  // Show local desktop/mobile notification if tab is in background
-  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+  // Show local desktop/mobile OS notification
+  if ('Notification' in window && Notification.permission === 'granted') {
     try {
-      new Notification(notif.title, {
-        body: notif.message,
-        icon: '/assets/icons/icon-192.png',
-        badge: '/assets/icons/icon-192.png'
-      });
-    } catch (e) {}
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        navigator.serviceWorker.ready.then(reg => {
+          reg.showNotification(notif.title, {
+            body: notif.message,
+            icon: '/assets/icons/icon-192.png',
+            badge: '/assets/icons/icon-192.png',
+            tag: 'order-' + (notif.order_id || Date.now()),
+            data: { url: '/pages/customer-orders.html' }
+          });
+        }).catch(() => {
+          new Notification(notif.title, { body: notif.message, icon: '/assets/icons/icon-192.png' });
+        });
+      } else {
+        new Notification(notif.title, {
+          body: notif.message,
+          icon: '/assets/icons/icon-192.png'
+        });
+      }
+    } catch (e) {
+      console.warn('[8ST] Notification display notice:', e);
+    }
   }
 }
 
@@ -585,18 +583,25 @@ function renderNotificationList() {
   }
 
   const unreadCount = userNotifications.filter(n => !n.is_read).length;
+  const notifPerm = ('Notification' in window) ? Notification.permission : 'unsupported';
+  const showPermBanner = notifPerm === 'default';
 
   panel.innerHTML = `
     <div class="notif-header">
       <span class="notif-title">Notifications ${unreadCount > 0 ? `<small style="font-size:0.75rem;color:var(--accent-color)">(${unreadCount} new)</small>` : ''}</span>
       ${unreadCount > 0 ? `<button class="notif-mark-read" onclick="markAllNotificationsAsRead()">Mark all as read</button>` : ''}
     </div>
+    ${showPermBanner ? `
+      <div style="background:rgba(197,160,89,0.12);border-bottom:1px solid rgba(197,160,89,0.22);padding:9px 14px;font-size:0.78rem;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="color:var(--text-primary);"><i class='bx bx-bell-ring' style="color:var(--accent-color);"></i> Allow phone/device alerts:</span>
+        <button type="button" class="btn btn-sm btn-primary" onclick="requestDeviceNotifications()" style="padding:3px 10px;font-size:0.72rem;border-radius:var(--radius-full);white-space:nowrap;">Enable</button>
+      </div>` : ''}
     <div class="notif-list">
       ${userNotifications.length === 0 ? `
         <div style="padding:28px 16px;text-align:center;color:var(--clr-text-muted);font-size:0.85rem;">
           <i class='bx bx-bell-off' style="font-size:2rem;display:block;margin-bottom:6px;"></i>
           No notifications yet
-          <div style="margin-top:14px;">
+          <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button type="button" class="btn btn-sm btn-outline" onclick="sendTestNotification()">
               <i class='bx bx-bell-ring'></i> Test Notification
             </button>
@@ -613,11 +618,50 @@ function renderNotificationList() {
     </div>`;
 }
 
+async function requestDeviceNotifications() {
+  if (!('Notification' in window)) {
+    showToast('Notifications not supported by this browser.', 'info');
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      showToast('Device notifications enabled!', 'success');
+      // Trigger a confirmation OS notification
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+        const reg = await navigator.serviceWorker.ready;
+        reg.showNotification('8 Saints Tailoring', {
+          body: 'System alerts are active! You will receive order updates here.',
+          icon: '/assets/icons/icon-192.png',
+          badge: '/assets/icons/icon-192.png'
+        });
+      } else {
+        new Notification('8 Saints Tailoring', {
+          body: 'System alerts are active! You will receive order updates here.',
+          icon: '/assets/icons/icon-192.png'
+        });
+      }
+      renderNotificationList();
+    } else {
+      showToast('Notifications were not granted in browser settings.', 'info');
+    }
+  } catch (e) {
+    console.warn('Notification permission error:', e);
+  }
+}
+
+window.requestDeviceNotifications = requestDeviceNotifications;
+
 async function sendTestNotification() {
   const user = window.__currentUser || window.__8ST?.getSessionUser?.();
   if (!user) {
     showToast('Please log in first to test notifications.', 'info');
     return;
+  }
+
+  // Also request permission if not yet decided
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
   }
 
   const sample = {
@@ -647,6 +691,7 @@ async function sendTestNotification() {
 }
 
 window.sendTestNotification = sendTestNotification;
+window.handleIncomingNotification = handleIncomingNotification;
 
 async function markAllNotificationsAsRead() {
   const user = window.__currentUser || window.__8ST?.getSessionUser?.();

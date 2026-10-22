@@ -54,15 +54,39 @@ ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.services ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders   ENABLE ROW LEVEL SECURITY;
 
--- Profiles: Anyone authenticated can read/write their own profile; admins can read all
+-- Helper function: non-recursive admin check (SECURITY DEFINER bypasses RLS)
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN LANGUAGE sql SECURITY DEFINER STABLE AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+  );
+$$;
+
+-- Profiles: Anyone authenticated or anon can read profiles; users update own, admin updates all
+DROP POLICY IF EXISTS "profiles_select_all" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_read_all" ON public.profiles;
-CREATE POLICY "profiles_read_all" ON public.profiles FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
-CREATE POLICY "profiles_insert_own" ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-
+DROP POLICY IF EXISTS "profiles_select_public" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_select" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can view own profile or admins view all" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_own" ON public.profiles;
-CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "profiles_update_admin" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_update" ON public.profiles;
+DROP POLICY IF EXISTS "profiles_insert_own" ON public.profiles;
+
+CREATE POLICY "profiles_select_clean" ON public.profiles
+  FOR SELECT USING (true);
+
+CREATE POLICY "profiles_insert_clean" ON public.profiles
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+CREATE POLICY "profiles_update_clean" ON public.profiles
+  FOR UPDATE USING (
+    auth.uid() = id OR public.is_admin()
+  ) WITH CHECK (
+    auth.uid() = id OR public.is_admin()
+  );
 
 -- Services: Public read for all users, insert/update/delete for authenticated admin
 DROP POLICY IF EXISTS "services_select_public" ON public.services;
@@ -71,10 +95,10 @@ CREATE POLICY "services_select_public" ON public.services FOR SELECT USING (true
 DROP POLICY IF EXISTS "services_write_admin" ON public.services;
 CREATE POLICY "services_write_admin" ON public.services FOR ALL
   USING (
-    EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    public.is_admin()
     OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
     OR auth.role() = 'service_role'
-    OR true -- Set to true or customize for your admin dashboard
+    OR true
   );
 
 -- Orders: Users can read & insert their own; admins can read & update all
@@ -82,7 +106,7 @@ DROP POLICY IF EXISTS "orders_select" ON public.orders;
 CREATE POLICY "orders_select" ON public.orders FOR SELECT
   USING (
     auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    OR public.is_admin()
     OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
@@ -94,12 +118,12 @@ DROP POLICY IF EXISTS "orders_update" ON public.orders;
 CREATE POLICY "orders_update" ON public.orders FOR UPDATE
   USING (
     auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    OR public.is_admin()
     OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   )
   WITH CHECK (
     auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
+    OR public.is_admin()
     OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
   );
 
@@ -122,20 +146,16 @@ ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "notifications_select_own" ON public.notifications;
 CREATE POLICY "notifications_select_own" ON public.notifications FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "notifications_update_own" ON public.notifications;
 CREATE POLICY "notifications_update_own" ON public.notifications FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "notifications_insert_admin" ON public.notifications;
-CREATE POLICY "notifications_insert_admin" ON public.notifications FOR INSERT
-  WITH CHECK (
-    auth.role() = 'service_role'
-    OR EXISTS (SELECT 1 FROM public.profiles WHERE profiles.id = auth.uid() AND profiles.role = 'admin')
-    OR (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
-  );
+DROP POLICY IF EXISTS "notifications_insert_all" ON public.notifications;
+CREATE POLICY "notifications_insert_all" ON public.notifications FOR INSERT
+  WITH CHECK (true);
 
 -- --5. TRIGGER: auto-notify customer on order status change--
 CREATE OR REPLACE FUNCTION public.notify_on_order_status_change()
@@ -150,10 +170,14 @@ BEGIN
     WHEN 'Completed'     THEN v_title := 'Order Completed!';    v_message := 'Your order #' || v_short || ' is ready for pickup/delivery.';
     ELSE                      v_title := 'Order Updated';       v_message := 'Your order #' || v_short || ' status: ' || NEW.status || '.';
   END CASE;
-  INSERT INTO public.notifications (user_id, order_id, title, message)
-  VALUES (NEW.user_id, NEW.id, v_title, v_message);
+
+  IF NEW.user_id IS NOT NULL THEN
+    INSERT INTO public.notifications (user_id, order_id, title, message)
+    VALUES (NEW.user_id, NEW.id, v_title, v_message);
+  END IF;
+
   RETURN NEW;
-EXCEPTION WHEN OTHERS THEN RAISE WARNING 'notify trigger: %', SQLERRM; RETURN NEW;
+EXCEPTION WHEN OTHERS THEN RAISE WARNING 'notify trigger error: %', SQLERRM; RETURN NEW;
 END; $$;
 
 DROP TRIGGER IF EXISTS trg_notify_order_status ON public.orders;
@@ -162,7 +186,15 @@ CREATE TRIGGER trg_notify_order_status
   FOR EACH ROW EXECUTE FUNCTION public.notify_on_order_status_change();
 
 -- Realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END $$;
 
 -- ============================================================
 -- SEED DATA (Run this in Supabase SQL Editor to populate services)

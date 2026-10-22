@@ -19,7 +19,7 @@
     .size-profile-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; padding: 5px 0; border-bottom: 1px solid var(--clr-border-light); }
     .size-profile-row:last-child { border-bottom: none; }
     .size-profile-label { color: var(--clr-text-secondary); text-transform: capitalize; }
-    .size-profile-val { font-weight: 700; color: var(--clr-primary); }
+    .size-profile-val { font-weight: 700; color: var(--accent-color); }
   </style>
 </head>
 <body>
@@ -67,11 +67,15 @@
     <i class='bx bx-clipboard'></i>
     My Orders
   </a>
+  <a href="/pages/profile.html" class="sidebar-nav-item" data-page="profile">
+    <i class='bx bx-user'></i>
+    Profile
+  </a>
   <a href="/pages/admin-dashboard.html" class="sidebar-nav-item admin-only-nav" data-page="admin" style="display:none;">
-    <i class='bx bx-cog'></i>
+    <i class='bx bx-shield-quarter'></i>
     Admin
   </a>
-  <a href="/pages/catalog.html" class="sidebar-cta"><i class='bx bx-plus'></i> Customize Now</a>
+
 </aside>
 
 <!-- --MAIN PAGE WRAPPER-- -->
@@ -138,20 +142,17 @@
     <i class='bx bx-grid-alt'></i>
     <span>Catalog</span>
   </a>
-  <a href="/pages/catalog.html" class="nav-center-btn" aria-label="Customize Now">
-    <i class='bx bx-plus'></i>
+  <a href="/pages/admin-dashboard.html" class="nav-item nav-admin-btn admin-only-nav" data-page="admin" style="display:none;">
+    <i class='bx bx-shield-quarter'></i>
+    <span>ADMIN</span>
   </a>
   <a href="/pages/customer-orders.html" class="nav-item active" data-page="orders">
     <i class='bx bx-clipboard'></i>
     <span>Orders</span>
   </a>
-  <a href="/pages/profile.html" class="nav-item customer-only-nav" data-page="profile">
+  <a href="/pages/profile.html" class="nav-item" data-page="profile">
     <i class='bx bx-user'></i>
     <span>Profile</span>
-  </a>
-  <a href="/pages/admin-dashboard.html" class="nav-item admin-only-nav hidden" data-page="admin" style="display:none;">
-    <i class='bx bx-cog'></i>
-    <span>Admin</span>
   </a>
 </nav>
 
